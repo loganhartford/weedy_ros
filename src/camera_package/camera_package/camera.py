@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
 from sensor_msgs.msg import Image
 from PIL import Image as PILImage
 from io import BytesIO
@@ -12,27 +12,27 @@ class CameraNode(Node):
     def __init__(self):
         super().__init__("camera_node")
         self.subscription = self.create_subscription(Bool, "button_state", self.button_callback, 10)
-        self.publisher_ = self.create_publisher(Image, "image_data", 10)
+        self.image_publisher = self.create_publisher(Image, "image_data", 10)
+        self.led_command_publisher = self.create_publisher(String, "led_command", 10)
         self.image_url = "http://10.0.0.171:8000"  # Replace with your Raspberry Pi IP
         self.bridge = CvBridge()
 
     def button_callback(self, msg):
         if msg.data:  # Button pressed
             try:
-                # Request and image
                 response = requests.get(self.image_url)
                 response.raise_for_status()
 
-                # Open and convert the image to a numpy array
                 image = PILImage.open(BytesIO(response.content))
-                image_np = np.array(image)
+                image_np = np.array(image)[:, :, ::-1]
 
-                # Convert the image to a ROS Image message
-                ros_image = self.bridge.cv2_to_imgmsg(image_np, encoding="rgb8")
-                self.publisher_.publish(ros_image)
-                self.get_logger().info("Image data published to image_data topic.")
+                ros_image = self.bridge.cv2_to_imgmsg(image_np, encoding="bgr8")
+                self.image_publisher.publish(ros_image)
+                self.led_command_publisher.publish(String(data="success"))
+                self.get_logger().info("Image data published to image_data topic and success sent to led_command.")
             
             except requests.exceptions.RequestException as e:
+                self.led_command_publisher.publish(String(data="error"))
                 self.get_logger().error(f"Failed to fetch image: {e}")
 
 def main(args=None):
