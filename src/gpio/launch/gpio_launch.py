@@ -21,4 +21,10 @@ def generate_launch_description():
             name='led_subscriber',
             output='screen'
         ),
+        Node(
+            package='inference',
+            executable='inference',
+            name='inference',
+            output='screen'
+        ),
     ])
