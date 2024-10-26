@@ -1,0 +1,39 @@
+running egg_info
+creating ../../build/camera_package/camera_package.egg-info
+writing ../../build/camera_package/camera_package.egg-info/PKG-INFO
+writing dependency_links to ../../build/camera_package/camera_package.egg-info/dependency_links.txt
+writing entry points to ../../build/camera_package/camera_package.egg-info/entry_points.txt
+writing requirements to ../../build/camera_package/camera_package.egg-info/requires.txt
+writing top-level names to ../../build/camera_package/camera_package.egg-info/top_level.txt
+writing manifest file '../../build/camera_package/camera_package.egg-info/SOURCES.txt'
+reading manifest file '../../build/camera_package/camera_package.egg-info/SOURCES.txt'
+writing manifest file '../../build/camera_package/camera_package.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /mnt/shared/weedy_ros/build/camera_package/build
+creating /mnt/shared/weedy_ros/build/camera_package/build/lib
+creating /mnt/shared/weedy_ros/build/camera_package/build/lib/camera_package
+copying camera_package/__init__.py -> /mnt/shared/weedy_ros/build/camera_package/build/lib/camera_package
+copying camera_package/subscriber_node.py -> /mnt/shared/weedy_ros/build/camera_package/build/lib/camera_package
+copying camera_package/publisher_node.py -> /mnt/shared/weedy_ros/build/camera_package/build/lib/camera_package
+running install
+running install_lib
+creating /mnt/shared/weedy_ros/install/camera_package/lib/python3.12/site-packages/camera_package
+copying /mnt/shared/weedy_ros/build/camera_package/build/lib/camera_package/__init__.py -> /mnt/shared/weedy_ros/install/camera_package/lib/python3.12/site-packages/camera_package
+copying /mnt/shared/weedy_ros/build/camera_package/build/lib/camera_package/subscriber_node.py -> /mnt/shared/weedy_ros/install/camera_package/lib/python3.12/site-packages/camera_package
+copying /mnt/shared/weedy_ros/build/camera_package/build/lib/camera_package/publisher_node.py -> /mnt/shared/weedy_ros/install/camera_package/lib/python3.12/site-packages/camera_package
+byte-compiling /mnt/shared/weedy_ros/install/camera_package/lib/python3.12/site-packages/camera_package/__init__.py to __init__.cpython-312.pyc
+byte-compiling /mnt/shared/weedy_ros/install/camera_package/lib/python3.12/site-packages/camera_package/subscriber_node.py to subscriber_node.cpython-312.pyc
+byte-compiling /mnt/shared/weedy_ros/install/camera_package/lib/python3.12/site-packages/camera_package/publisher_node.py to publisher_node.cpython-312.pyc
+running install_data
+creating /mnt/shared/weedy_ros/install/camera_package/share/ament_index
+creating /mnt/shared/weedy_ros/install/camera_package/share/ament_index/resource_index
+creating /mnt/shared/weedy_ros/install/camera_package/share/ament_index/resource_index/packages
+copying resource/camera_package -> /mnt/shared/weedy_ros/install/camera_package/share/ament_index/resource_index/packages
+copying package.xml -> /mnt/shared/weedy_ros/install/camera_package/share/camera_package
+running install_egg_info
+Copying ../../build/camera_package/camera_package.egg-info to /mnt/shared/weedy_ros/install/camera_package/lib/python3.12/site-packages/camera_package-0.0.0-py3.12.egg-info
+running install_scripts
+Installing publisher_node script to /mnt/shared/weedy_ros/install/camera_package/lib/camera_package
+Installing subscriber_node script to /mnt/shared/weedy_ros/install/camera_package/lib/camera_package
+writing list of installed files to '/mnt/shared/weedy_ros/build/camera_package/install.log'
