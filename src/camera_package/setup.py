@@ -20,8 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            f'publisher_node = {package_name}.publisher_node:main',
-            f'subscriber_node = {package_name}.subscriber_node:main',
+            f'camera = {package_name}.camera:main',
         ],
     },
 )
