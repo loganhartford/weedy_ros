@@ -1,6 +1,11 @@
+# Ignore colcon build and install directories
+build/
+install/
+log/
+
+# Existing ignores
 devel/
 logs/
-build/
 bin/
 lib/
 msg_gen/
