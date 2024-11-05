@@ -25,6 +25,7 @@ def generate_launch_description():
             package='inference',
             executable='inference',
             name='inference',
-            output='screen'
+            output='screen',
+            prefix='/mnt/shared/weedy_ros/src/inference/inference/yolo_env/bin/python3',
         ),
     ])
