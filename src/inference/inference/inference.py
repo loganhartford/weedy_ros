@@ -4,9 +4,8 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
-# from cv_bridge import CvBridge
 import numpy as np
-# import cv2
+
 from ultralytics import YOLO
 
 class InferenceNode(Node):
@@ -15,8 +14,8 @@ class InferenceNode(Node):
         self.subscription = self.create_subscription(Image, "image_data", self.image_callback, 10)
         self.led_publisher = self.create_publisher(String, "led_command", 10)
         # self.bridge = CvBridge()
-        self.model_path = "/mnt/shared/weedy_ros/src/inference/inference/models/coco_ncnn_model"
-        self.model = YOLO(self.model_path, task="detect")
+        self.model_path = "/home/weedy/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model"
+        self.model = YOLO(self.model_path, task="pose")
 
     def image_callback(self, msg):
         try:
@@ -32,13 +31,10 @@ class InferenceNode(Node):
                 self.get_logger().info("No detections found.")
             else:
                 result = results[0]
-                # Save the image with detections
-                result.save()
-                self.get_logger().info("Detections saved to file.")
                 
                 # Print detection details
                 for box in result.boxes:
-                    xyxy = box.xyxy[0].cpu().numpy()  # [xmin, ymin, xmax, ymax]
+                    xyxy = box.xyxy[0].cpu().numpy() # This call to cpu might be causing an error
                     conf = box.conf
                     cls = box.cls
                     self.get_logger().info(f"Bounding box coordinates: {xyxy}, Confidence: {conf}, Class: {cls}")
