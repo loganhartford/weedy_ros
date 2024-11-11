@@ -57,7 +57,7 @@ class ControllerNode(Node):
             10
         )
 
-        # Comms
+        # Axis encodings
         self.x_axis = 0 
         self.y_axis = 1
         self.z_axis = 2
@@ -70,6 +70,10 @@ class ControllerNode(Node):
             self.publish_img_request()
         elif msg.data == "test_uart":
             self.get_logger().info(f"Sending test msg...")
+            testMsg = CartesianMsg()
+            testMsg.axis = 1
+            testMsg.position = 258
+            self.cmd_cartesian_publisher.publish(testMsg)
 
     def keypoints_callback(self, msg):
         self.get_logger().info(f"Received keypoints: {msg}")
