@@ -1,26 +1,26 @@
 from setuptools import find_packages, setup
 
-package_name = 'controller'
+package_name = 'homography'
 
 setup(
     name=package_name,
     version='0.0.0',
     packages=find_packages(exclude=['test']),
     data_files=[
-        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', ['launch/controller_launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='root',
     maintainer_email='logan.hartford@outlook.com',
-    description='WeedWarden system controller',
+    description='Converts pixel to cartesian coordinates.',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            f'controller = {package_name}.controller:main',
+            f'homography = {package_name}.homography:main', 
         ],
     },
 )
