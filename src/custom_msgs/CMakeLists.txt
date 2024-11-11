@@ -5,10 +5,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# find dependencies
+# Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)  # Add this line to find geometry_msgs
 find_package(rosidl_default_generators REQUIRED)
 
 # Specify the message files
@@ -16,7 +17,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Keypoint.msg"
   "msg/Keypoints.msg"
   "msg/CartesianMsg.msg"
-  DEPENDENCIES std_msgs
+  "msg/Points.msg"
+  DEPENDENCIES std_msgs geometry_msgs
 )
 
 if(BUILD_TESTING)

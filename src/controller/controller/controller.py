@@ -51,40 +51,47 @@ class ControllerNode(Node):
             '/get_img',
             10
         )
-        self.pixel_coordinates_publisher = self.create_publisher(
-            Point,
-            '/pixel_coordinates',
-            10
-        )
 
         # Axis encodings
         self.x_axis = 0 
         self.y_axis = 1
         self.z_axis = 2
 
+        # State
+        self.state = "idle"
+        self.positions = [0,0,0]
+        self.velocities = [0, 0] # linear, angular
+
+        # Thresholds
+        self.search_confidence = 0.6
+        self.locating_confidence = 0.8
+
     def cmd_callback(self, msg):
         self.get_logger().info(f"Received cmd: {msg.data}")
         if msg.data == "start":
             self.get_logger().info(f"Starting...")
+            self.state = "searching"
+
+            self.publish_img_request()
+            self.publish_twist(0.5, 0)
+            
         elif msg.data == "get_img":
             self.publish_img_request()
+        
         elif msg.data == "test_uart":
             self.get_logger().info(f"Sending test msg...")
             testMsg = CartesianMsg()
             testMsg.axis = 1
             testMsg.position = 258
             self.cmd_cartesian_publisher.publish(testMsg)
+        
+        elif msg.data == "stop":
+            self.get_logger().info(f"Stopping...")
+            self.state = "idle"
 
     def keypoints_callback(self, msg):
         self.get_logger().info(f"Received keypoints: {msg}")
-        for keypoint in msg:
-            # More complicated logic later
-            if keypoint.base[2] > 0.7: # Confidence threshold
-                point = Point()
-                point.x = keypoint.base[0]
-                point.y = keypoint.base[1]
-                point.z = 0.0
-                self.publish_pixel_coordinates(point)
+        
 
     def cartesian_state_callback(self, msg):
         self.get_logger().info(f"Received cartesian state: {msg}")
@@ -99,7 +106,6 @@ class ControllerNode(Node):
             outMsg.axis = self.y_axis
             outMsg.position = msg.y
             self.cmd_cartesian_publisher.publish(outMsg)
-        
 
     def publish_img_request(self):
         msg = Bool()
@@ -107,9 +113,13 @@ class ControllerNode(Node):
         self.get_img_publisher.publish(msg)
         self.get_logger().info(f"Image requested.")
     
-    def publish_pixel_coordinates(self, point):
-        self.pixel_coordinates_publisher.publish(point)
-        self.get_logger.info(f"Posted pixel coordinates: {point}")
+    def publish_twist(self, linear, angular):
+        msg = Twist()
+        msg.linear.x = linear
+        msg.anglular.z = angular
+        self.cmd_vel_publisher.publish(msg)
+        self.velocities = [linear, angular]
+        self.get_logger().info(f"Setting linear: {linear}, angular: {angular}")
 
 
 
