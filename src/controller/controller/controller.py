@@ -3,7 +3,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point
 from std_msgs.msg import Bool, String
 
-from custom_msgs.msg import Keypoints, Keypoint
+from custom_msgs.msg import Keypoints, Keypoint, CartesianMsg
 
 class ControllerNode(Node):
     def __init__(self):
@@ -22,12 +22,12 @@ class ControllerNode(Node):
             self.keypoints_callback,
             10
         )
-        # self.cartesian_state_subscription = self.create_subscription(
-        #     CartesianState,
-        #     '/cartesian_state',
-        #     self.cartesian_state_callback,
-        #     10
-        # )
+        self.cartesian_state_subscription = self.create_subscription(
+            CartesianMsg,
+            '/cartesian_state',
+            self.cartesian_state_callback,
+            10
+        )
         self.cartesian_coordinates_subscription = self.create_subscription(
             Point,
             '/cartesian_coordinates',
@@ -41,11 +41,11 @@ class ControllerNode(Node):
             '/cmd_vel',
             10
         )
-        # self.cmd_cartesian_publisher = self.create_publisher(
-        #     CartesianState,
-        #     '/cmd_cartesian',
-        #     10
-        # )
+        self.cmd_cartesian_publisher = self.create_publisher(
+            CartesianMsg,
+            '/cmd_cartesian',
+            10
+        )
         self.get_img_publisher = self.create_publisher(
             Bool,
             '/get_img',
@@ -56,6 +56,11 @@ class ControllerNode(Node):
             '/pixel_coordinates',
             10
         )
+
+        # Comms
+        self.x_axis = 0 
+        self.y_axis = 1
+        self.z_axis = 2
 
     def cmd_callback(self, msg):
         self.get_logger().info(f"Received cmd: {msg.data}")
@@ -77,13 +82,20 @@ class ControllerNode(Node):
                 point.z = 0.0
                 self.publish_pixel_coordinates(point)
 
-
-
     def cartesian_state_callback(self, msg):
         self.get_logger().info(f"Received cartesian state: {msg}")
 
     def cartesian_coordinates_callback(self, msg):
-        self.get_logger().info(f"Received cartesian coordinates: {msg}")      
+        self.get_logger().info(f"Received cartesian coordinates: {msg}")
+        if msg.x:
+            # send command to locomotion
+            pass
+        if msg.y >0 and msg.y <= 450:
+            outMsg = CartesianMsg()
+            outMsg.axis = self.y_axis
+            outMsg.position = msg.y
+            self.cmd_cartesian_publisher.publish(outMsg)
+        
 
     def publish_img_request(self):
         msg = Bool()

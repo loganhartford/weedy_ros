@@ -46,4 +46,10 @@ def generate_launch_description():
             name='homography',
             output='screen',
         ),
+        Node(
+            package='uart',
+            executable='uart',
+            name='uart',
+            output='screen',
+        ),
     ])
