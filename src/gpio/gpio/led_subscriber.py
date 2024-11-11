@@ -13,7 +13,7 @@ class LEDSubscriberNode(Node):
         lgpio.gpio_claim_output(self.chip, self.green_led_pin)
         lgpio.gpio_claim_output(self.chip, self.red_led_pin)
 
-        self.subscription = self.create_subscription(String, "led_command", self.led_callback, 10)
+        self.subscription = self.create_subscription(String, "/led_command", self.led_callback, 10)
 
     def led_callback(self, msg):
         if msg.data == "success":

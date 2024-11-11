@@ -12,9 +12,8 @@ class ButtonPublisherNode(Node):
         self.chip = lgpio.gpiochip_open(0)
         lgpio.gpio_claim_input(self.chip, self.button_pin)
 
-        self.publisher_ = self.create_publisher(Bool, "button_state", 10)
-
-        self.get_logger().info("Starting to monitor the button...")
+        self.publisher_ = self.create_publisher(Bool, "/button_state", 10)
+        
         self.monitor_button()
 
     def monitor_button(self):
@@ -28,12 +27,11 @@ class ButtonPublisherNode(Node):
                 msg = Bool()
                 msg.data = True
                 self.publisher_.publish(msg)
-                self.get_logger().info(f'Button pressed: {msg.data}')
+                self.get_logger().info(f'Button pressed!')
 
                 # Wait for the button to be released
                 while lgpio.gpio_read(self.chip, self.button_pin) == 1:
                     time.sleep(0.01)  # Debounce delay
-
 
         except KeyboardInterrupt:
             self.get_logger().info("Shutting down button monitoring...")

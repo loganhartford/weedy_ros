@@ -13,23 +13,13 @@ from custom_msgs.msg import Keypoint, KeypointSet, Inference
 class InferenceNode(Node):
     def __init__(self):
         super().__init__("inference_node")
-        self.subscription = self.create_subscription(
-            Image,
-            "/image_data",
-            self.image_callback, 
-            10
-        )
 
-        self.keypoint_publisher = self.create_publisher(
-            Inference,
-            "/keypoints",
-            10
-        )
+        self.subscription = self.create_subscription(Image, "/image_data", self.image_callback, 10)
+        self.keypoint_publisher = self.create_publisher(Inference, "/keypoints", 10)
 
         self.model_path = "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model"
         self.model = YOLO(self.model_path, task="pose")
         self.confidence_threshold = 0.6
-
         self.null_keypoint = Keypoint(x=0, y=0, confidence=0)
 
     def image_callback(self, msg):
@@ -45,7 +35,6 @@ class InferenceNode(Node):
             # Run inference
             results = self.model(img_data)
             if not results:
-                self.get_logger().info("No detections found.")
                 self.append_empty_keypoint_set(inference_msg)
             else:
                 self.process_results(results[0], inference_msg)

@@ -9,18 +9,9 @@ class UartNode(Node):
     def __init__(self):
         super().__init__('uart_node')
 
-        self.subscriber = self.create_subscription(
-            CartesianMsg,
-            "/cmd_cartesian",
-            self.cmd_cartesian_callback,
-            10
-        )
+        self.subscriber = self.create_subscription(CartesianMsg, "/cmd_cartesian", self.cmd_cartesian_callback, 10)
+        self.publisher = self.create_publisher(CartesianMsg, "/cartesian_state", 10)
 
-        self.publisher = self.create_publisher(
-            CartesianMsg,
-            "/cartesian_state",
-            10
-        )
 
         # Initialize the serial connection
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=9600, timeout=0.1)
@@ -47,6 +38,10 @@ class UartNode(Node):
             self.publisher.publish(response_msg)
             self.get_logger().info(f"Received Data: Axis {resp_axis}, Position {resp_position}")
         else:
+            response_msg = CartesianMsg()
+            response_msg.axis = -1
+            response_msg.position = -1
+            self.publisher.publish(response_msg)
             self.get_logger().warning("Timeout waiting for data message from Nucleo.")
 
     def construct_message(self, message_type, axis, position):
