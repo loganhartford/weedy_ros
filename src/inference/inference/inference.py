@@ -8,7 +8,7 @@ import numpy as np
 
 from ultralytics import YOLO
 
-from custom_msgs.msg import Keypoints, Keypoint
+from custom_msgs.msg import Keypoint, KeypointSet, Inference
 
 class InferenceNode(Node):
     def __init__(self):
@@ -21,13 +21,16 @@ class InferenceNode(Node):
         )
 
         self.keypoint_publisher = self.create_publisher(
-            Keypoints,
+            Inference,
             "/keypoints",
             10
         )
 
         self.model_path = "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model"
         self.model = YOLO(self.model_path, task="pose")
+        self.confidence_threshold = 0.6
+
+        self.null_keypoint = Keypoint(x=0, y=0, confidence=0)
 
     def image_callback(self, msg):
         try:
@@ -40,30 +43,42 @@ class InferenceNode(Node):
             self.get_logger().info(f"Inferencing...")
 
             # Run inference
-            kp_msg = Keypoint()
-            keypoints_msg = Keypoints()
+            inference_msg = Inference()
             results = self.model(img_data)
             if not results:
                 self.get_logger().info("No detections found.")
-                kp_msg.has_visible = False
-                keypoints_msg.keypoints.append(kp_msg)
+                keypoint_set_msg = KeypointSet()
+                keypoint_set_msg.has_visible = False
+                inference_msg.keypoints.append(keypoint_set_msg)
             else:
                 result = results[0]
                 # result.save() # will save jpg
                 
                 for kp in result.keypoints:
+                    keypoint_set_msg = KeypointSet()
                     data = kp.data[0]
 
-                    kp_msg.has_visible = True
-                    kp_msg.flower = [round(x, 3) for x in data[0].tolist()]
-                    kp_msg.base = [round(x, 3) for x in data[1].tolist()]
-                    kp_msg.upper = [round(x, 3) for x in data[2].tolist()]
-                    kp_msg.lower = [round(x, 3) for x in data[3].tolist()]
-                    
-                    keypoints_msg.keypoints.append(kp_msg)
+                    keypoint_set_msg.has_visible = kp.has_visible
+                    if not keypoint_set_msg.has_visible:
+                        continue
+                    keypoint_set_msg.flower.x, keypoint_set_msg.flower.y, keypoint_set_msg.flower.confidence = (round(val, 3) for val in data[0])
+                    keypoint_set_msg.base.x, keypoint_set_msg.base.y, keypoint_set_msg.base.confidence = (round(val, 3) for val in data[1])
+                    keypoint_set_msg.upper.x, keypoint_set_msg.upper.y, keypoint_set_msg.upper.confidence = (round(val, 3) for val in data[2])
+                    keypoint_set_msg.lower.x, keypoint_set_msg.lower.y, keypoint_set_msg.lower.confidence = (round(val, 3) for val in data[3])
 
-            self.keypoint_publisher.publish(keypoints_msg)
-            self.get_logger().info(f"Published {len(keypoints_msg.keypoints)} keypoints.")
+                    if keypoint_set_msg.flower.confidence < self.confidence_threshold:
+                        keypoint_set_msg.flower = self.null_keypoint
+                    if keypoint_set_msg.base.confidence < self.confidence_threshold:
+                        keypoint_set_msg.base = self.null_keypoint
+                    if keypoint_set_msg.upper.confidence < self.confidence_threshold:
+                        keypoint_set_msg.upper = self.null_keypoint
+                    if keypoint_set_msg.lower.confidence < self.confidence_threshold:
+                        keypoint_set_msg.lower = self.null_keypoint
+                    
+                    inference_msg.keypoints.append(keypoint_set_msg)
+
+            self.keypoint_publisher.publish(inference_msg)
+            self.get_logger().info(f"Published {len(inference_msg.keypoints)} keypoints.")
         
         except Exception as e:
             self.get_logger().error(f"Failed to process image: {e}")

@@ -1,1 +1,0 @@
-Keypoint[] keypoints

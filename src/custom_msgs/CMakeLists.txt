@@ -15,8 +15,8 @@ find_package(rosidl_default_generators REQUIRED)
 # Specify the message files
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Keypoint.msg"
-  "msg/Keypoints.msg"
-  "msg/CartesianMsg.msg"
+  "msg/KeypointSet.msg"
+  "msg/Inference.msg"
   "msg/Points.msg"
   DEPENDENCIES std_msgs geometry_msgs
 )
