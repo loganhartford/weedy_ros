@@ -34,54 +34,62 @@ class InferenceNode(Node):
 
     def image_callback(self, msg):
         try:
-           # Decode the ROS Image message to a numpy array
-            height = msg.height
-            width = msg.width
-            channels = 3
-            img_data = np.frombuffer(msg.data, dtype=np.uint8).reshape(height, width, channels)
+            # Decode the ROS Image message to a numpy array
+            img_data = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, 3)
 
-            self.get_logger().info(f"Inferencing...")
+            self.get_logger().info("Running inference...")
+
+            # Initialize inference message
+            inference_msg = Inference()
 
             # Run inference
-            inference_msg = Inference()
             results = self.model(img_data)
             if not results:
                 self.get_logger().info("No detections found.")
-                keypoint_set_msg = KeypointSet()
-                keypoint_set_msg.has_visible = False
-                inference_msg.keypoints.append(keypoint_set_msg)
+                self.append_empty_keypoint_set(inference_msg)
             else:
-                result = results[0]
-                # result.save() # will save jpg
-                
-                for kp in result.keypoints:
-                    keypoint_set_msg = KeypointSet()
-                    data = kp.data[0]
+                self.process_results(results[0], inference_msg)
 
-                    keypoint_set_msg.has_visible = kp.has_visible
-                    if not keypoint_set_msg.has_visible:
-                        continue
-                    keypoint_set_msg.flower.x, keypoint_set_msg.flower.y, keypoint_set_msg.flower.confidence = (round(val, 3) for val in data[0])
-                    keypoint_set_msg.base.x, keypoint_set_msg.base.y, keypoint_set_msg.base.confidence = (round(val, 3) for val in data[1])
-                    keypoint_set_msg.upper.x, keypoint_set_msg.upper.y, keypoint_set_msg.upper.confidence = (round(val, 3) for val in data[2])
-                    keypoint_set_msg.lower.x, keypoint_set_msg.lower.y, keypoint_set_msg.lower.confidence = (round(val, 3) for val in data[3])
-
-                    if keypoint_set_msg.flower.confidence < self.confidence_threshold:
-                        keypoint_set_msg.flower = self.null_keypoint
-                    if keypoint_set_msg.base.confidence < self.confidence_threshold:
-                        keypoint_set_msg.base = self.null_keypoint
-                    if keypoint_set_msg.upper.confidence < self.confidence_threshold:
-                        keypoint_set_msg.upper = self.null_keypoint
-                    if keypoint_set_msg.lower.confidence < self.confidence_threshold:
-                        keypoint_set_msg.lower = self.null_keypoint
-                    
-                    inference_msg.keypoints.append(keypoint_set_msg)
-
+            # Publish the inference message
             self.keypoint_publisher.publish(inference_msg)
             self.get_logger().info(f"Published {len(inference_msg.keypoints)} keypoints.")
-        
+
         except Exception as e:
             self.get_logger().error(f"Failed to process image: {e}")
+
+    def append_empty_keypoint_set(self, inference_msg):
+        keypoint_set_msg = KeypointSet()
+        keypoint_set_msg.has_visible = False
+        inference_msg.keypoints.append(keypoint_set_msg)
+
+    def process_results(self, result, inference_msg):
+        for kp in result.keypoints:
+            keypoint_set_msg = KeypointSet()
+            keypoint_set_msg.has_visible = kp.has_visible
+            
+            if not kp.has_visible:
+                continue
+
+            # Extract and assign each keypoint's values
+            for key, data in zip(["flower", "base", "upper", "lower"], kp.data[0]):
+                setattr(keypoint_set_msg, key, self.create_keypoint(data))
+
+            # Filter keypoints based on confidence threshold
+            self.filter_keypoints_by_confidence(keypoint_set_msg)
+
+            inference_msg.keypoints.append(keypoint_set_msg)
+
+    def create_keypoint(self, data):
+        keypoint = Keypoint()
+        keypoint.x, keypoint.y, keypoint.confidence = (round(val, 3) for val in data)
+        return keypoint
+
+    def filter_keypoints_by_confidence(self, keypoint_set_msg):
+        for key in ["flower", "base", "upper", "lower"]:
+            keypoint = getattr(keypoint_set_msg, key)
+            if keypoint.confidence < self.confidence_threshold:
+                setattr(keypoint_set_msg, key, self.null_keypoint)
+
 
 def main(args=None):
     rclpy.init(args=args)
