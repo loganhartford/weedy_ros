@@ -70,7 +70,7 @@ class InferenceNode(Node):
 
     def create_keypoint(self, data):
         keypoint = Keypoint()
-        keypoint.x, keypoint.y, keypoint.confidence = (round(val, 3) for val in data)
+        keypoint.x, keypoint.y, keypoint.confidence = (round(float(val), 3) for val in data)
         return keypoint
 
     def filter_keypoints_by_confidence(self, keypoint_set_msg):

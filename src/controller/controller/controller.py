@@ -60,10 +60,10 @@ class ControllerNode(Node):
                 self.publish_img_request()
                 self.publish_twist(0.5, 0)
         else:
-            self.get_logger.error(f"Transitioning from {self.state} to {state} is invalid.")
+            self.get_logger().error(f"Transitioning from {self.state} to {state} is invalid.")
             return
             
-        self.get_logger.info(f"Transitioned from {prev_state} to {self.state}.")
+        self.get_logger().info(f"Transitioned from {prev_state} to {self.state}.")
 
     def cmd_callback(self, msg):
         if msg.data == "start":
@@ -137,8 +137,8 @@ class ControllerNode(Node):
     
     def publish_twist(self, linear, angular):
         msg = Twist()
-        msg.linear.x = linear
-        msg.anglular.z = angular
+        msg.linear.x = float(linear)
+        msg.angular.z = float(angular)
         self.cmd_vel_publisher.publish(msg)
         self.velocities = [linear, angular]
         self.get_logger().info(f"Setting linear: {linear}, angular: {angular}")
