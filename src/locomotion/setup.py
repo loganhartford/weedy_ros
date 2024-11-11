@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'inference'
+package_name = 'locomotion'
 
 setup(
     name=package_name,
@@ -13,14 +13,13 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='loganhartford',
+    maintainer='root',
     maintainer_email='logan.hartford@outlook.com',
-    description='Runs YOLO inference on images to determine the keypoints of dandelions.',
+    description='Controls the differential drive system of the WeedWarden Robot.',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            f'inference = {package_name}.inference:main',
         ],
     },
 )
