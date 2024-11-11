@@ -3,7 +3,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point
 from std_msgs.msg import Bool, String
 
-from custom_msgs.msg import Keypoint, KeypointSet, Inference, CartesianMsg
+from custom_msgs.msg import Keypoint, KeypointSet, Inference, CartesianCmd
 
 class ControllerNode(Node):
     def __init__(self):
@@ -12,12 +12,12 @@ class ControllerNode(Node):
         # Subscribers
         self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
         self.keypoints_subscription = self.create_subscription(Inference, '/keypoints', self.keypoints_callback, 10)
-        self.cartesian_state_subscription = self.create_subscription(CartesianMsg, '/cartesian_state', self.cartesian_state_callback, 10)
+        self.cartesian_state_subscription = self.create_subscription(CartesianCmd, '/cartesian_state', self.cartesian_state_callback, 10)
         self.cartesian_coordinates_subscription = self.create_subscription(Point, '/cartesian_coordinates', self.cartesian_coordinates_callback, 10)
 
         # Publishers
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.cmd_cartesian_publisher = self.create_publisher(CartesianMsg, '/cmd_cartesian', 10)
+        self.cmd_cartesian_publisher = self.create_publisher(CartesianCmd, '/cmd_cartesian', 10)
         self.get_img_publisher = self.create_publisher(Bool, '/get_img', 10)
 
         # Axis encodings
@@ -74,7 +74,7 @@ class ControllerNode(Node):
         elif msg.data == "get_img":
             self.publish_img_request()
         elif msg.data == "test_uart":
-            testMsg = CartesianMsg()
+            testMsg = CartesianCmd()
             testMsg.axis = 1
             testMsg.position = 258
             self.cmd_cartesian_publisher.publish(testMsg)
@@ -102,7 +102,7 @@ class ControllerNode(Node):
                 # Once aligned on y axis
                 if abs(best_point.x) < self.y_axis_alignment_tolerance:
                     # Send command to the Nucleo
-                    cartesian_msg = CartesianMsg()
+                    cartesian_msg = CartesianCmd()
                     cartesian_msg.axis = self.y_axis
                     cartesian_msg.position = best_point.y
                     self.cmd_cartesian_publisher.publish(cartesian_msg)

@@ -9,7 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)  # Add this line to find geometry_msgs
+find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 # Specify the message files
@@ -18,6 +18,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/KeypointSet.msg"
   "msg/Inference.msg"
   "msg/Points.msg"
+  "msg/CartesianCmd.msg"
   DEPENDENCIES std_msgs geometry_msgs
 )
 
@@ -27,5 +28,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+# Ensure dependencies are fully exported
 ament_export_dependencies(rosidl_default_runtime)
+ament_export_dependencies(rclcpp std_msgs geometry_msgs)
 ament_package()

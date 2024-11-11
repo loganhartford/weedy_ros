@@ -2,20 +2,20 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Point
 
-from custom_msgs.msg import Points
+from custom_msgs.msg import Points, Inference
 
 class HomographyNode(Node):
     def __init__(self):
         super().__init__("homography_node")
 
-        self.subscriber = self.create_subscription(Point, "/keypoints", self.keypoints_callback, 10)
+        self.subscriber = self.create_subscription(Inference, "/keypoints", self.keypoints_callback, 10)
         self.publisher = self.create_publisher(Points, "/cartesian_coordinates", 10)
 
         self.confidence_threshold = 0.8
 
-    def keypoints_callback(self, msg):
+    def keypoints_callback(self, inference_msg):
         points_msg = Points()
-        for keypoint_set in msg:
+        for keypoint_set in inference_msg:
             if keypoint_set.has_visible:
                 # Take the most valid keypoint from each set of keypoints
                 if keypoint_set.base.confidence > self.confidence_threshold:

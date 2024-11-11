@@ -3,14 +3,14 @@ from rclpy.node import Node
 import serial
 import time
 
-from custom_msgs.msg import CartesianMsg
+from custom_msgs.msg import CartesianCmd
 
 class UartNode(Node):
     def __init__(self):
         super().__init__('uart_node')
 
-        self.subscriber = self.create_subscription(CartesianMsg, "/cmd_cartesian", self.cmd_cartesian_callback, 10)
-        self.publisher = self.create_publisher(CartesianMsg, "/cartesian_state", 10)
+        self.subscriber = self.create_subscription(CartesianCmd, "/cmd_cartesian", self.cmd_cartesian_callback, 10)
+        self.publisher = self.create_publisher(CartesianCmd, "/cartesian_state", 10)
 
 
         # Initialize the serial connection
@@ -32,13 +32,13 @@ class UartNode(Node):
         data_received, resp_axis, resp_position = self.wait_for_data_message()
         if data_received:
             # Publish the received data to /cartesian_state
-            response_msg = CartesianMsg()
+            response_msg = CartesianCmd()
             response_msg.axis = resp_axis
             response_msg.position = resp_position
             self.publisher.publish(response_msg)
             self.get_logger().info(f"Received Data: Axis {resp_axis}, Position {resp_position}")
         else:
-            response_msg = CartesianMsg()
+            response_msg = CartesianCmd()
             response_msg.axis = -1
             response_msg.position = -1
             self.publisher.publish(response_msg)
