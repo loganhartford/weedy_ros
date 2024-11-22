@@ -22,9 +22,9 @@ class InferenceNode(Node):
         self.confidence_threshold = 0.6
 
         self.null_keypoint = Keypoint()
-        self.null_keypoint.x = 0
-        self.null_keypoint.y = 0
-        self.null_keypoint.confidence = 0
+        self.null_keypoint.x = 0.0
+        self.null_keypoint.y = 0.0
+        self.null_keypoint.confidence = 0.0
 
     def image_callback(self, msg):
         try:
@@ -36,10 +36,19 @@ class InferenceNode(Node):
 
             # Run inference
             results = self.model(img_data, verbose=False)
-            results[0].save()
+            
             if not results:
                 self.append_empty_keypoint_set(inference_msg)
             else:
+                result = results[0]
+
+                # Filter by box confidence
+                result.keypoints = result.keypoints[result.boxes.conf >= self.confidence_threshold]
+                result.boxes = result.boxes[result.boxes.conf >= self.confidence_threshold]
+
+                # Optionally save the image
+                result.save("/mnt/shared/weedy_ros/src/inference/inference/result.jpg")
+
                 self.process_results(results[0], inference_msg)
 
 
@@ -53,6 +62,10 @@ class InferenceNode(Node):
     def append_empty_keypoint_set(self, inference_msg):
         keypoint_set_msg = KeypointSet()
         keypoint_set_msg.has_visible = False
+        keypoint_set_msg.base = self.null_keypoint
+        keypoint_set_msg.flower = self.null_keypoint
+        keypoint_set_msg.upper = self.null_keypoint
+        keypoint_set_msg.lower = self.null_keypoint
         inference_msg.keypoints.append(keypoint_set_msg)
 
     def process_results(self, result, inference_msg):

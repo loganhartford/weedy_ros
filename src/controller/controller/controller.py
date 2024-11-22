@@ -3,6 +3,8 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point
 from std_msgs.msg import Bool, String
 
+import time
+
 from custom_msgs.msg import Keypoint, KeypointSet, Inference, CartesianCmd, Points
 
 class ControllerNode(Node):
@@ -44,6 +46,8 @@ class ControllerNode(Node):
                 self.state = "searching"
                 self.publish_img_request()
                 self.publish_twist(0.5, 0)
+            if state == "test":
+                self.state = "test"
         elif self.state == "searching":
             if state == "idle":
                 self.state = "idle"
@@ -67,14 +71,14 @@ class ControllerNode(Node):
         else:
             self.get_logger().error(f"Transitioning from {self.state} to {state} is invalid.")
             return
-            
-        
 
     def cmd_callback(self, msg):
         if msg.data == "start":
             self.transition_to_state("searching")
         elif msg.data == "stop":
             self.transition_to_state("idle")
+        elif msg.data == "test":
+            self.transition_to_state("test")
         # For dev
         elif msg.data == "get_img":
             self.publish_img_request()
@@ -98,24 +102,26 @@ class ControllerNode(Node):
             self.publish_img_request()
 
     def cartesian_coordinates_callback(self, msg):
-        if self.state == "finding":
+        if self.state == "finding" or self.state == "test":
             # Homography located a valid keypoint
             if len(msg.points) > 0:
                 # Sort by alignment to y-axis
-                best_point = min(msg.points, key=lambda point: point.x)
+                best_point = min(msg.points, key=lambda point: abs(point.x))
+                self.get_logger().info(f"{best_point.x}, {best_point.y}")
 
                 # Once aligned on y axis
                 if abs(best_point.x) < self.y_axis_alignment_tolerance:
                     # Send command to the Nucleo
                     cartesian_msg = CartesianCmd()
                     cartesian_msg.axis = self.y_axis
-                    cartesian_msg.position = best_point.y
+                    cartesian_msg.position = int(abs(best_point.y))
                     self.cmd_cartesian_publisher.publish(cartesian_msg)
                     self.transition_to_state("waiting")
                 # If we are not aligned on y axis, move in x
                 else:
                     self.get_logger().info(f"Moving {best_point.x} mm in x")
                     # probably transition to waiting and wait for a callback but not yet
+                    time.sleep(1)
                     self.publish_img_request()
 
                 self.empty_homogoraphy_count = 0
