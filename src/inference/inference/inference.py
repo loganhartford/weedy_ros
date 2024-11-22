@@ -20,7 +20,11 @@ class InferenceNode(Node):
         self.model_path = "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model"
         self.model = YOLO(self.model_path, task="pose")
         self.confidence_threshold = 0.6
-        self.null_keypoint = Keypoint(x=0, y=0, confidence=0)
+
+        self.null_keypoint = Keypoint()
+        self.null_keypoint.x = 0
+        self.null_keypoint.y = 0
+        self.null_keypoint.confidence = 0
 
     def image_callback(self, msg):
         try:
@@ -34,14 +38,15 @@ class InferenceNode(Node):
 
             # Run inference
             results = self.model(img_data)
+            results[0].save()
             if not results:
                 self.append_empty_keypoint_set(inference_msg)
             else:
                 self.process_results(results[0], inference_msg)
 
-            # Publish the inference message
+
             self.keypoint_publisher.publish(inference_msg)
-            self.get_logger().info(f"Published {len(inference_msg.keypoints)} keypoints.")
+            self.get_logger().info(f"Published {len(inference_msg.keypoints)} keypoint sets.")
 
         except Exception as e:
             self.get_logger().error(f"Failed to process image: {e}")
@@ -58,7 +63,7 @@ class InferenceNode(Node):
             
             if not kp.has_visible:
                 continue
-
+            
             # Extract and assign each keypoint's values
             for key, data in zip(["flower", "base", "upper", "lower"], kp.data[0]):
                 setattr(keypoint_set_msg, key, self.create_keypoint(data))
@@ -70,7 +75,9 @@ class InferenceNode(Node):
 
     def create_keypoint(self, data):
         keypoint = Keypoint()
-        keypoint.x, keypoint.y, keypoint.confidence = (round(float(val), 3) for val in data)
+        keypoint.x = round(float(data[0]), 3)
+        keypoint.y = round(float(data[1]), 3)
+        keypoint.confidence = round(float(data[2]), 3)
         return keypoint
 
     def filter_keypoints_by_confidence(self, keypoint_set_msg):

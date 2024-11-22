@@ -82,7 +82,7 @@ class ControllerNode(Node):
             self.get_logger().error(f"'{msg}' is not a valid command.")
         
     def keypoints_callback(self, msg):
-        for keypoint_set in msg:
+        for keypoint_set in msg.keypoints:
             # Want to stop the robot if a valid keypoint is posted
             if self.state == "searching":
                 if keypoint_set.has_visible:

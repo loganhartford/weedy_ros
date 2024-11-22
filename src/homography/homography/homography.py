@@ -15,19 +15,19 @@ class HomographyNode(Node):
 
     def keypoints_callback(self, inference_msg):
         points_msg = Points()
-        for keypoint_set in inference_msg:
+        for keypoint_set in inference_msg.keypoints:
             if keypoint_set.has_visible:
                 # Take the most valid keypoint from each set of keypoints
                 if keypoint_set.base.confidence > self.confidence_threshold:
-                    points_msg.append(self.convert_to_cartesian(keypoint_set.base))
+                    points_msg.points.append(self.convert_to_cartesian(keypoint_set.base))
                 elif keypoint_set.flower.confidence > self.confidence_threshold:
-                    points_msg.append(self.convert_to_cartesian(keypoint_set.flower))
+                    points_msg.points.append(self.convert_to_cartesian(keypoint_set.flower))
                 elif keypoint_set.lower.confidence > self.confidence_threshold:
-                    points_msg.append(self.convert_to_cartesian(keypoint_set.lower))
+                    points_msg.points.append(self.convert_to_cartesian(keypoint_set.lower))
                 elif keypoint_set.upper.confidence > self.confidence_threshold:
-                    points_msg.append(self.convert_to_cartesian(keypoint_set.upper))
+                    points_msg.points.append(self.convert_to_cartesian(keypoint_set.upper))
         
-        self.get_logger().info(f"Published {len(points_msg)} cartesian coordinates.")
+        self.get_logger().info(f"Published {len(points_msg.points)} cartesian coordinates.")
         self.publisher.publish(points_msg)
     
     def map_value(self, x, input_min=0, input_max=1920, output_min=0, output_max=450):
