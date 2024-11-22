@@ -3,7 +3,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point
 from std_msgs.msg import Bool, String
 
-from custom_msgs.msg import Keypoint, KeypointSet, Inference, CartesianCmd
+from custom_msgs.msg import Keypoint, KeypointSet, Inference, CartesianCmd, Points
 
 class ControllerNode(Node):
     def __init__(self):
@@ -13,7 +13,7 @@ class ControllerNode(Node):
         self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
         self.keypoints_subscription = self.create_subscription(Inference, '/keypoints', self.keypoints_callback, 10)
         self.cartesian_state_subscription = self.create_subscription(CartesianCmd, '/cartesian_state', self.cartesian_state_callback, 10)
-        self.cartesian_coordinates_subscription = self.create_subscription(Point, '/cartesian_coordinates', self.cartesian_coordinates_callback, 10)
+        self.cartesian_coordinates_subscription = self.create_subscription(Points, '/cartesian_coordinates', self.cartesian_coordinates_callback, 10)
 
         # Publishers
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -33,7 +33,12 @@ class ControllerNode(Node):
         self.empty_homogoraphy_count = 0
     
     def transition_to_state(self, state):
-        prev_state = self.state
+        if self.state == state:
+            self.get_logger().error(f"State already {state}")
+            return
+
+        self.get_logger().info(f"Transitioning from {self.state} to {state}.")
+
         if self.state == "idle":
             if state == "searching":
                 self.state = "searching"
@@ -63,7 +68,7 @@ class ControllerNode(Node):
             self.get_logger().error(f"Transitioning from {self.state} to {state} is invalid.")
             return
             
-        self.get_logger().info(f"Transitioned from {prev_state} to {self.state}.")
+        
 
     def cmd_callback(self, msg):
         if msg.data == "start":
@@ -95,9 +100,9 @@ class ControllerNode(Node):
     def cartesian_coordinates_callback(self, msg):
         if self.state == "finding":
             # Homography located a valid keypoint
-            if len(msg) > 0:
+            if len(msg.points) > 0:
                 # Sort by alignment to y-axis
-                best_point = min(msg, key=lambda point: point.x)
+                best_point = min(msg.points, key=lambda point: point.x)
 
                 # Once aligned on y axis
                 if abs(best_point.x) < self.y_axis_alignment_tolerance:
@@ -109,8 +114,9 @@ class ControllerNode(Node):
                     self.transition_to_state("waiting")
                 # If we are not aligned on y axis, move in x
                 else:
-                    self.get_logger.info(f"Moving {best_point.x} mm in x")
+                    self.get_logger().info(f"Moving {best_point.x} mm in x")
                     # probably transition to waiting and wait for a callback but not yet
+                    self.publish_img_request()
 
                 self.empty_homogoraphy_count = 0
             # Homography should have located a keypoints

@@ -37,7 +37,7 @@ class CameraNode(Node):
 
             ros_image = self.bridge.cv2_to_imgmsg(image_np, encoding="bgr8")
             self.image_publisher.publish(ros_image)
-            self.get_logger().info("Image data published.")
+            # self.get_logger().info("Image data published.")
         
         except requests.exceptions.RequestException as e:
             self.get_logger().error(f"Failed to fetch image: {e}")

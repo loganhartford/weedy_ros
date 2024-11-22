@@ -18,7 +18,7 @@ class InferenceNode(Node):
         self.keypoint_publisher = self.create_publisher(Inference, "/keypoints", 10)
 
         self.model_path = "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model"
-        self.model = YOLO(self.model_path, task="pose")
+        self.model = YOLO(self.model_path, task="pose", verbose=False)
         self.confidence_threshold = 0.6
 
         self.null_keypoint = Keypoint()
@@ -31,13 +31,11 @@ class InferenceNode(Node):
             # Decode the ROS Image message to a numpy array
             img_data = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, 3)
 
-            self.get_logger().info("Running inference...")
-
             # Initialize inference message
             inference_msg = Inference()
 
             # Run inference
-            results = self.model(img_data)
+            results = self.model(img_data, verbose=False)
             results[0].save()
             if not results:
                 self.append_empty_keypoint_set(inference_msg)
@@ -46,6 +44,7 @@ class InferenceNode(Node):
 
 
             self.keypoint_publisher.publish(inference_msg)
+
             self.get_logger().info(f"Published {len(inference_msg.keypoints)} keypoint sets.")
 
         except Exception as e:
