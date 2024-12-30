@@ -25,7 +25,7 @@ class HomographyNode(Node):
                     image = cv2.imread("/mnt/shared/weedy_ros/src/inference/inference/result.jpg")
                     pixel_location = (int(keypoint_set.base.x), int(keypoint_set.base.y))
                     print(pixel_location)
-                    cv2.circle(image, pixel_location, radius=10, color=(0, 255, 0), thickness=-1)
+                    cv2.circle(image, pixel_location, radius=20, color=(255, 0, 0), thickness=-1)
                     cv2.imwrite("./homography.jpg", image)
                     points_msg.points.append(self.convert_to_cartesian(keypoint_set.base))
                 elif keypoint_set.flower.confidence > self.confidence_threshold:

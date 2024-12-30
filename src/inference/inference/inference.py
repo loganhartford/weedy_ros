@@ -3,7 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from std_msgs.msg import String
+from std_msgs.msg import Bool
 import numpy as np
 
 from ultralytics import YOLO
@@ -16,6 +16,7 @@ class InferenceNode(Node):
 
         self.subscription = self.create_subscription(Image, "/image_data", self.image_callback, 10)
         self.keypoint_publisher = self.create_publisher(Inference, "/keypoints", 10)
+        self.get_img_publisher = self.create_publisher(Bool, '/get_img', 10)
 
         self.model_path = "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model"
         self.model = YOLO(self.model_path, task="pose", verbose=False)
@@ -38,9 +39,13 @@ class InferenceNode(Node):
             results = self.model(img_data, verbose=False)
             
             if not results:
-                self.append_empty_keypoint_set(inference_msg)
+                # self.append_empty_keypoint_set(inference_msg)
+                pass
             else:
                 result = results[0]
+
+                self.get_logger().info(f"{len(result.keypoints)}")
+                self.get_logger().info(f"{len(result.boxes)}")
 
                 # Filter by box confidence
                 result.keypoints = result.keypoints[result.boxes.conf >= self.confidence_threshold]
@@ -50,14 +55,19 @@ class InferenceNode(Node):
                 result.save("/mnt/shared/weedy_ros/src/inference/inference/result.jpg")
 
                 self.process_results(results[0], inference_msg)
+                self.keypoint_publisher.publish(inference_msg)
+                self.get_logger().info(f"Published {len(inference_msg.keypoints)} keypoint sets.")
 
-
-            self.keypoint_publisher.publish(inference_msg)
-
-            self.get_logger().info(f"Published {len(inference_msg.keypoints)} keypoint sets.")
+            self.publish_img_request()
 
         except Exception as e:
             self.get_logger().error(f"Failed to process image: {e}")
+    
+    def publish_img_request(self):
+        msg = Bool()
+        msg.data = True
+        self.get_img_publisher.publish(msg)
+        self.get_logger().info(f"Image requested.")
 
     def append_empty_keypoint_set(self, inference_msg):
         keypoint_set_msg = KeypointSet()

@@ -54,7 +54,7 @@ class ControllerNode(Node):
                 self.publish_twist(0, 0)
             elif state == "finding":
                 self.state = "finding"
-                self.publish_img_request()
+                # self.publish_img_request()
                 self.publish_twist(0, 0)
         elif self.state == "finding":
             if state == "idle":
@@ -66,7 +66,7 @@ class ControllerNode(Node):
                 self.state = "idle"
             elif state == "searching":
                 self.state = "searching"
-                self.publish_img_request()
+                # self.publish_img_request()
                 self.publish_twist(0.5, 0)
         else:
             self.get_logger().error(f"Transitioning from {self.state} to {state} is invalid.")
@@ -98,8 +98,8 @@ class ControllerNode(Node):
                     self.transition_to_state("finding")
                     return
         # No keypoints detected, request another image
-        if self.state == "searching":
-            self.publish_img_request()
+        # if self.state == "searching":
+        #     self.publish_img_request()
 
     def cartesian_coordinates_callback(self, msg):
         if self.state == "finding" or self.state == "test":
@@ -121,8 +121,8 @@ class ControllerNode(Node):
                 else:
                     self.get_logger().info(f"Moving {best_point.x} mm in x")
                     # probably transition to waiting and wait for a callback but not yet
-                    time.sleep(1)
-                    self.publish_img_request()
+                    # time.sleep(1)
+                    # self.publish_img_request()
 
                 self.empty_homogoraphy_count = 0
             # Homography should have located a keypoints
@@ -131,8 +131,8 @@ class ControllerNode(Node):
                 # Possibly a false positive initially, move on
                 if self.empty_homogoraphy_count >=3:
                     self.transition_to_state("searching")
-                else:
-                    self.publish_img_request()
+                # else:
+                #     self.publish_img_request()
 
     def cartesian_state_callback(self, msg):
         if msg.axis == -1:
