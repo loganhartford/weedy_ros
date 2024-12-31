@@ -9,30 +9,37 @@ def generate_launch_description():
             name='controller',
             output='screen'
         ),
-        Node(
-            package='gpio',
-            executable='button_publisher',
-            name='button_publisher',
-            output='screen'
-        ),
+        # Node(
+        #     package='gpio',
+        #     executable='button_publisher',
+        #     name='button_publisher',
+        #     output='screen'
+        # ),
         Node(
             package='camera_package',
             executable='camera',
             name='camera',
             output='screen'
         ),
-        Node(
-            package='gpio',
-            executable='led_subscriber',
-            name='led_subscriber',
-            output='screen'
-        ),
+        # Node(
+        #     package='gpio',
+        #     executable='led_subscriber',
+        #     name='led_subscriber',
+        #     output='screen'
+        # ),
         Node(
             package='inference',
             executable='inference',
             name='inference',
             output='screen',
             prefix='/mnt/shared/weedy_ros/src/inference/inference/yolo_env/bin/python3',
+        ),
+        Node(
+            package='neo_pixel',
+            executable='neo_pixel',
+            name='neo_pixel',
+            output='screen',
+            prefix='/mnt/shared/weedy_ros/src/neo_pixel/neo_pixel/venv/bin/python3',
         ),
         Node(
             package='locomotion',
