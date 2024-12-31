@@ -35,11 +35,11 @@ def generate_launch_description():
             prefix='/mnt/shared/weedy_ros/src/inference/inference/yolo_env/bin/python3',
         ),
         Node(
-            package='neo_pixel',
-            executable='neo_pixel',
-            name='neo_pixel',
+            package='neopixel_ring',
+            executable='neopixel_ring',
+            name='neopixel_ring',
             output='screen',
-            prefix='/mnt/shared/weedy_ros/src/neo_pixel/neo_pixel/venv/bin/python3',
+            prefix='/mnt/shared/weedy_ros/src/neopixel_ring/neopixel_ring/venv/bin/python3',
         ),
         Node(
             package='locomotion',

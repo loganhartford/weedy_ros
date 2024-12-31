@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'neo_pixel'
+package_name = 'neopixel_ring'
 
 setup(
     name=package_name,
@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'neopixel_ring = neopixel_ring.neopixel_ring:main',
         ],
     },
 )

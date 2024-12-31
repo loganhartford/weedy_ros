@@ -7,7 +7,7 @@ from pi5neo import Pi5Neo
 
 class NeoPixelNode(Node):
     def __init__(self):
-        super().__init__("neo_pixel")
+        super().__init__("neopixel_ring")
 
         self.neo = Pi5Neo('/dev/spidev0.0', 16, 800)
 
