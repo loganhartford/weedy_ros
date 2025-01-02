@@ -1,11 +1,8 @@
 import cv2
 import numpy as np
 
-# Pixel points (image space)
 pixel_points = np.array([[265, 443], [258, 874], [1633, 869], [1625, 440]], dtype=np.float32)
-
-# Ground points (robot frame, assume z=0)
-ground_points = np.array([[294, 101.4], [294, 0], [-26, 0], [-26, 101.4]], dtype=np.float32)
+ground_points = np.array([[101.4, -48.33], [0, -48.33], [0, 271.67], [101.4, 271.67]], dtype=np.float32)
 
 # Compute homography
 H, _ = cv2.findHomography(pixel_points, ground_points)

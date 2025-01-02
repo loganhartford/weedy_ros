@@ -16,7 +16,7 @@ class UartNode(Node):
         # Initialize the serial connection
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=9600, timeout=0.1)
         self.ack_timeout = 1 # s
-        self.data_timeout = 15 # s
+        # self.data_timeout = 15 # s
 
     def cmd_cartesian_callback(self, msg):
         message = self.construct_message(0x01, msg.axis, msg.position)
@@ -110,7 +110,8 @@ class UartNode(Node):
         start_time = time.time()
         buffer = bytearray()
 
-        while (time.time() - start_time) < self.data_timeout:
+        # while (time.time() - start_time) < self.data_timeout:
+        while True: # For now, just wait indefinitely
             data = self.ser.read(self.ser.in_waiting or 1)
             if data:
                 buffer.extend(data)

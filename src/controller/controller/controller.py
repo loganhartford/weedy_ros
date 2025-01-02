@@ -88,7 +88,7 @@ class ControllerNode(Node):
         elif msg.data == "test_uart":
             testMsg = CartesianCmd()
             testMsg.axis = 1
-            testMsg.position = 258
+            testMsg.position = 100
             self.cmd_cartesian_publisher.publish(testMsg)
         else:
             self.get_logger().error(f"'{msg}' is not a valid command.")

@@ -47,12 +47,12 @@ def generate_launch_description():
             name='locomotion',
             output='screen',
         ),
-        Node(
-            package='homography',
-            executable='homography',
-            name='homography',
-            output='screen',
-        ),
+        # Node(
+        #     package='homography',
+        #     executable='homography',
+        #     name='homography',
+        #     output='screen',
+        # ),
         Node(
             package='uart',
             executable='uart',
