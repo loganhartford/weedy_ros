@@ -15,7 +15,6 @@ class ControllerNode(Node):
         self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
         self.keypoints_subscription = self.create_subscription(Inference, '/keypoints', self.keypoints_callback, 10)
         self.cartesian_state_subscription = self.create_subscription(CartesianCmd, '/cartesian_state', self.cartesian_state_callback, 10)
-        self.cartesian_coordinates_subscription = self.create_subscription(Points, '/cartesian_coordinates', self.cartesian_coordinates_callback, 10)
 
         # Publishers
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -32,7 +31,11 @@ class ControllerNode(Node):
 
         # State
         self.state = "idle"
-        self.empty_homogoraphy_count = 0
+        self.no_points_count = 0
+        self.no_points_threshold = 3
+
+        # Dandelion detection
+        self.confidence_threshold = 0.8
     
     def transition_to_state(self, state):
         if self.state == state:
@@ -91,48 +94,57 @@ class ControllerNode(Node):
             self.get_logger().error(f"'{msg}' is not a valid command.")
         
     def keypoints_callback(self, msg):
+        if self.state != "searching" and self.state != "finding" and self.state != "test":
+            return
+
+        keypoints = []
         for keypoint_set in msg.keypoints:
+            if not keypoint_set.has_visible:
+                continue
             # Want to stop the robot if a valid keypoint is posted
             if self.state == "searching":
-                if keypoint_set.has_visible:
-                    self.transition_to_state("finding")
-                    return
-        # No keypoints detected, request another image
-        # if self.state == "searching":
-        #     self.publish_img_request()
+                self.transition_to_state("finding")
+            
+            # Take the most valid keypoint from each set of keypoints
+            if keypoint_set.base.confidence > self.confidence_threshold:
+                keypoints.append(keypoint_set.base)
+            elif keypoint_set.flower.confidence > self.confidence_threshold:
+                keypoints.append(keypoint_set.flower)
+            elif keypoint_set.lower.confidence > self.confidence_threshold:
+                keypoints.append(keypoint_set.lower)
+            elif keypoint_set.upper.confidence > self.confidence_threshold:
+                keypoints.append(keypoint_set.upper)
+        
+        self.process_points(keypoints)
 
-    def cartesian_coordinates_callback(self, msg):
-        if self.state == "finding" or self.state == "test":
-            # Homography located a valid keypoint
-            if len(msg.points) > 0:
-                # Sort by alignment to y-axis
-                best_point = min(msg.points, key=lambda point: abs(point.x))
-                self.get_logger().info(f"{best_point.x}, {best_point.y}")
+    def process_points(self, points):
+        if self.state != "finding" and self.state != "test":
+            return
+        
+        if len(points) > 0:
+            self.no_points_count = 0
+            # Take the point closest to the y axis
+            best_point = min(points, key=lambda point: abs(point.x))
+            self.get_logger().info(f"{best_point.x}, {best_point.y}")
 
-                # Once aligned on y axis
-                if abs(best_point.x) < self.y_axis_alignment_tolerance:
-                    # Send command to the Nucleo
-                    cartesian_msg = CartesianCmd()
-                    cartesian_msg.axis = self.y_axis
-                    cartesian_msg.position = int(abs(best_point.y))
-                    self.cmd_cartesian_publisher.publish(cartesian_msg)
-                    self.transition_to_state("waiting")
-                # If we are not aligned on y axis, move in x
-                else:
-                    self.get_logger().info(f"Moving {best_point.x} mm in x")
-                    # probably transition to waiting and wait for a callback but not yet
-                    # time.sleep(1)
-                    # self.publish_img_request()
-
-                self.empty_homogoraphy_count = 0
-            # Homography should have located a keypoints
+            # Once aligned on y axis, send command to the Nucleo
+            if abs(best_point.x) < self.y_axis_alignment_tolerance:
+                cartesian_msg = CartesianCmd()
+                cartesian_msg.axis = self.y_axis
+                cartesian_msg.position = int(abs(best_point.y))
+                self.cmd_cartesian_publisher.publish(cartesian_msg)
+                self.transition_to_state("waiting")
+            # If we are not aligned on y axis, move in x
             else:
-                self.empty_homogoraphy_count += 1
-                # Possibly a false positive initially, move on
-                if self.empty_homogoraphy_count >=3:
-                    self.transition_to_state("searching")
-                # else:
-                #     self.publish_img_request()
+                self.get_logger().info(f"Moving {best_point.x} mm in x")
+                # probably transition to waiting and wait for a callback but not yet
+        else:
+            self.no_points_count += 1
+            # Possibly a false positive initially, move on
+            if self.no_points_count >= self.no_points_threshold:
+                self.transition_to_state("searching")
+            # else:
+            #     self.publish_img_request()
 
     def cartesian_state_callback(self, msg):
         if msg.axis == -1:

@@ -4,7 +4,9 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import Bool
+
 import numpy as np
+import cv2
 
 from ultralytics import YOLO
 
@@ -26,6 +28,11 @@ class InferenceNode(Node):
         self.null_keypoint.x = 0.0
         self.null_keypoint.y = 0.0
         self.null_keypoint.confidence = 0.0
+
+        # Homography calibration
+        self.pixel_points = np.array([[265, 443], [258, 874], [1633, 869], [1625, 440]], dtype=np.float32)
+        self.ground_points = np.array([[294, 101.4], [294, 0], [-26, 0], [-26, 101.4]], dtype=np.float32)
+        self.H, _ = cv2.findHomography(self.pixel_points, self.ground_points)
 
     def image_callback(self, msg):
         try:
@@ -96,9 +103,11 @@ class InferenceNode(Node):
             inference_msg.keypoints.append(keypoint_set_msg)
 
     def create_keypoint(self, data):
+        ground_coords = self.homography_transform(data[:2])
+
         keypoint = Keypoint()
-        keypoint.x = round(float(data[0]), 3)
-        keypoint.y = round(float(data[1]), 3)
+        keypoint.x = round(float(ground_coords[0]), 3)
+        keypoint.y = round(float(ground_coords[1]), 3)
         keypoint.confidence = round(float(data[2]), 3)
         return keypoint
 
@@ -107,6 +116,16 @@ class InferenceNode(Node):
             keypoint = getattr(keypoint_set_msg, key)
             if keypoint.confidence < self.confidence_threshold:
                 setattr(keypoint_set_msg, key, self.null_keypoint)
+    
+    def homography_transform(self, pixel):
+        image_point = np.array([pixel[0], pixel[1], 1], dtype=np.float32)
+        ground_point = np.dot(self.H, image_point)
+        ground_point /= ground_point[2]
+
+        return ground_point[:2]
+
+    def destroy_node(self):
+        super().destroy_node()
 
 
 def main(args=None):
