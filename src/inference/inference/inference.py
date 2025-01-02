@@ -44,13 +44,12 @@ class InferenceNode(Node):
 
             # Run inference
             results = self.model(img_data, verbose=False)
+            result = results[0]
             
-            if not results:
+            if len(result) == 0:
                 # self.append_empty_keypoint_set(inference_msg)
                 pass
             else:
-                result = results[0]
-
                 self.get_logger().info(f"{len(result.keypoints)}")
                 self.get_logger().info(f"{len(result.boxes)}")
 
@@ -61,7 +60,7 @@ class InferenceNode(Node):
                 # Optionally save the image
                 result.save("/mnt/shared/weedy_ros/src/inference/inference/result.jpg")
 
-                self.process_results(results[0], inference_msg)
+                self.process_results(result, inference_msg)
                 self.keypoint_publisher.publish(inference_msg)
                 self.get_logger().info(f"Published {len(inference_msg.keypoints)} keypoint sets.")
 
