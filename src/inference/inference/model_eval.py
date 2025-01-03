@@ -7,11 +7,8 @@ import time
 
 url = "http://10.0.0.171:8000"
 neo = Pi5Neo('/dev/spidev0.0', 16, 800)
-r = 1.0
-g = 1.0
-b = 1.0
-a = 0.5
-confidence_threshold = 0.6
+a = 1.0
+
 
 models = {
     "indoor_pose": "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model",
@@ -38,11 +35,14 @@ def get_image():
 
 
 def main():
+    print()
+    print("################# TEST #################")
+    print()
     # Turn on light
-    neo.fill_strip(int(r * 255 * a), int(g * 255 * a), int(b * 255 * a))
+    neo.fill_strip(int(255 * a), int(255 * a), int(255 * a))
     neo.update_strip()
 
-    time.sleep(0.5)
+    time.sleep(3)
 
     # Get image
     image = get_image()
@@ -60,8 +60,9 @@ def main():
             print("No results")
         else:
             # Filter by box confidence
-            # result.keypoints = result.keypoints[result.boxes.conf >= confidence_threshold]
-            # result.boxes = result.boxes[result.boxes.conf >= confidence_threshold]
+            confidence_threshold = 0.6
+            result.keypoints = result.keypoints[result.boxes.conf >= confidence_threshold]
+            result.boxes = result.boxes[result.boxes.conf >= confidence_threshold]
 
             # Save image
             result.save(f"/mnt/shared/weedy_ros/src/inference/inference/eval/{model_name}.jpg")
@@ -73,8 +74,11 @@ def main():
                     continue
             
                 keypoints = list(zip(["flower", "base", "upper", "lower"], kp.data[0]))
-
-                print(f"{keypoints[1]}")
+                keypoints = sorted(keypoints, key=lambda x: ["base", "lower", "upper", "flower"].index(x[0]))
+                for name, tensor in keypoints:
+                    if all(tensor.numpy() != 0):
+                        print(f"{name}: ({tensor[0]:.2f}, {tensor[1]:.2f}, {tensor[2]:.2f})")
+                        break
 
 
 def cleanup():
