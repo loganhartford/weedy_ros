@@ -1,0 +1,6 @@
+Model Name,Average Euclidean Distance,Average Confidence
+indoor_pose,259.2465126805555,0.9283203
+indoor_bright,55.95043734487359,0.9964844
+all_partial,45.17620764019399,0.95830077
+outdoor_partial,523.9854569589831,0.92041016
+outdoor_then_indoor,782.8592944248059,0.31201171875

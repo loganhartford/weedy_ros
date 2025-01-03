@@ -4,19 +4,23 @@ import requests
 from PIL import Image
 from io import BytesIO
 import time
+import numpy as np
+import csv
 
 url = "http://10.0.0.171:8000"
 neo = Pi5Neo('/dev/spidev0.0', 16, 800)
 a = 1.0
 
+actual_base = (1191, 498)
+test_name = "test1"
 
 models = {
     "indoor_pose": "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model",
     "indoor_bright": "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_bright_ncnn_model",
     "all_partial": "/mnt/shared/weedy_ros/src/inference/inference/models/all_partial_ncnn_model",
     "outdoor_partial": "/mnt/shared/weedy_ros/src/inference/inference/models/outdoor_partial_ncnn_model",
+    "outdoor_then_indoor": "/mnt/shared/weedy_ros/src/inference/inference/models/outdoor_then_indoor_ncnn_model",
 }
-
 
 def get_image():
     try:
@@ -25,14 +29,17 @@ def get_image():
 
         image = Image.open(BytesIO(response.content))
 
-        image.save("downloaded_image.jpg")
+        image_path = f"/mnt/shared/weedy_ros/src/inference/inference/eval/{test_name}/downloaded_image.jpg"
+        image.save(image_path)
 
         print("Image fetched")
-        return image
+        return image_path
 
     except requests.exceptions.RequestException as e:
         print("Failed to fetch image:", e)
 
+def euclidean_distance(point1, point2):
+    return np.linalg.norm(np.array(point1) - np.array(point2))
 
 def main():
     print()
@@ -42,44 +49,75 @@ def main():
     neo.fill_strip(int(255 * a), int(255 * a), int(255 * a))
     neo.update_strip()
 
+    # Wait for light to turn on
     time.sleep(3)
 
-    # Get image
-    image = get_image()
+    results_data = {model_name: {"distances": [], "confidences": []} for model_name in models}
 
     # Run inference
+    for iter in range(5):
+        # Get image
+        image_path = get_image()
+
+        for model_name in models:
+            # Load model
+            model_path = models[model_name]
+            model = YOLO(model_path, task="pose", verbose=False)
+
+            # Run inference
+            results = model(image_path, verbose=False)
+            result = results[0]
+
+            # If no results, add placeholder values
+            if len(result) == 0:
+                results_data[model_name]["distances"].append(1080)
+                results_data[model_name]["confidences"].append(0)
+            else:
+                # Filter by box confidence
+                confidence_threshold = 0.6
+                result.keypoints = result.keypoints[result.boxes.conf >= confidence_threshold]
+                result.boxes = result.boxes[result.boxes.conf >= confidence_threshold]
+
+                # Save image
+                result.save(f"/mnt/shared/weedy_ros/src/inference/inference/eval/{test_name}/{model_name}_{iter}.jpg")
+
+                # Calculate distances and confidences
+                best_distance = 1080
+                best_confidence = 0
+                for kp in result.keypoints:
+                    if not kp.has_visible:
+                        continue
+
+                    keypoints = list(zip(["flower", "base", "upper", "lower"], kp.data[0]))
+                    keypoints = sorted(keypoints, key=lambda x: ["base", "lower", "upper", "flower"].index(x[0]))
+                    for name, tensor in keypoints:
+                        if all(tensor.numpy() != 0):
+                            distance = euclidean_distance(actual_base, (tensor[0], tensor[1]))
+                            confidence = tensor[2]
+                            if distance < best_distance:
+                                best_distance = distance
+                                best_confidence = confidence
+                            break
+                results_data[model_name]["distances"].append(best_distance)
+                results_data[model_name]["confidences"].append(best_confidence)
+
+    # Calculate and print averages
     for model_name in models:
-        print()
-        model_path = models[model_name]
-        model = YOLO(model_path, task="pose", verbose=False)
-        print(f"Model: {model_name}")
-        
-        results = model("downloaded_image.jpg", verbose=False)
-        result = results[0]
-        if len(result) == 0:
-            print("No results")
-        else:
-            # Filter by box confidence
-            confidence_threshold = 0.6
-            result.keypoints = result.keypoints[result.boxes.conf >= confidence_threshold]
-            result.boxes = result.boxes[result.boxes.conf >= confidence_threshold]
+        average_distance = np.mean(results_data[model_name]["distances"])
+        average_confidence = np.mean(results_data[model_name]["confidences"])
+        print(f"Average best Euclidean distance for {model_name}: {average_distance:.2f}")
+        print(f"Average confidence for {model_name}: {average_confidence:.2f}")
 
-            # Save image
-            result.save(f"/mnt/shared/weedy_ros/src/inference/inference/eval/{model_name}.jpg")
+        results_data[model_name] = [average_distance, average_confidence]
 
-            # Print keypoint locations
-            for i, kp in enumerate(result.keypoints):
-                # print(f"Keypoint set {i}")
-                if not kp.has_visible:
-                    continue
-            
-                keypoints = list(zip(["flower", "base", "upper", "lower"], kp.data[0]))
-                keypoints = sorted(keypoints, key=lambda x: ["base", "lower", "upper", "flower"].index(x[0]))
-                for name, tensor in keypoints:
-                    if all(tensor.numpy() != 0):
-                        print(f"{name}: ({tensor[0]:.2f}, {tensor[1]:.2f}, {tensor[2]:.2f})")
-                        break
-
+    # Save data to CSV
+    csv_path = f"/mnt/shared/weedy_ros/src/inference/inference/eval/{test_name}/results.csv"
+    with open(csv_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Model Name", "Average Euclidean Distance", "Average Confidence"])
+        for model_name, data in results_data.items():
+            writer.writerow([model_name] + data)
+    print(f"Results saved to {csv_path}")
 
 def cleanup():
     neo.clear_strip()
@@ -88,4 +126,3 @@ def cleanup():
 if __name__ == "__main__":
     main()
     cleanup()
-
