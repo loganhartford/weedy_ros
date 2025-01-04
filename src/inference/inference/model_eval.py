@@ -11,8 +11,8 @@ url = "http://10.0.0.171:8000"
 neo = Pi5Neo('/dev/spidev0.0', 16, 800)
 a = 1.0
 
-actual_base = (1219, 976)
-test_name = "test1"
+actual_base = (368, 365)
+test_name = "test2"
 
 models = {
     "indoor_pose": "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model",
@@ -73,9 +73,9 @@ def main():
                 results_data[model_name]["confidences"].append(0)
             else:
                 # Filter by box confidence
-                confidence_threshold = 0.6
-                result.keypoints = result.keypoints[result.boxes.conf >= confidence_threshold]
-                result.boxes = result.boxes[result.boxes.conf >= confidence_threshold]
+                # confidence_threshold = 0.6
+                # result.keypoints = result.keypoints[result.boxes.conf >= confidence_threshold]
+                # result.boxes = result.boxes[result.boxes.conf >= confidence_threshold]
 
                 # Save image
                 result.save(f"/mnt/shared/weedy_ros/src/inference/inference/eval/{test_name}/{model_name}_{iter}.jpg")
