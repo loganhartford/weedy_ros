@@ -32,7 +32,6 @@ def get_image():
         image_path = f"/mnt/shared/weedy_ros/src/inference/inference/eval/{test_name}/downloaded_image.jpg"
         image.save(image_path)
 
-        print("Image fetched")
         return image_path
 
     except requests.exceptions.RequestException as e:
@@ -54,16 +53,16 @@ def main():
 
     results_data = {model_name: {"distances": [], "confidences": []} for model_name in models}
 
+    # Load models
+    loaded_models = {model_name: YOLO(model_path, task="pose", verbose=False) for model_name, model_path in models.items()}
+
     # Run inference
     for iter in range(5):
         # Get image
+        
         image_path = get_image()
 
-        for model_name in models:
-            # Load model
-            model_path = models[model_name]
-            model = YOLO(model_path, task="pose", verbose=False)
-
+        for model_name, model in loaded_models.items():
             # Run inference
             results = model(image_path, verbose=False)
             result = results[0]
@@ -103,6 +102,8 @@ def main():
 
     # Calculate and print averages
     for model_name in models:
+        print()
+        print(f"Results for {model_name}:")
         average_distance = np.mean(results_data[model_name]["distances"])
         average_confidence = np.mean(results_data[model_name]["confidences"])
         print(f"Average best Euclidean distance for {model_name}: {average_distance:.2f}")
@@ -124,5 +125,7 @@ def cleanup():
     neo.update_strip()
 
 if __name__ == "__main__":
+    model = YOLO("/mnt/shared/weedy_ros/src/inference/inference/models/all_partial_ncnn_model", task="pose", verbose=False)
+
     main()
     cleanup()
