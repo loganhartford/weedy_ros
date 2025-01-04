@@ -11,8 +11,8 @@ url = "http://10.0.0.171:8000"
 neo = Pi5Neo('/dev/spidev0.0', 16, 800)
 a = 1.0
 
-actual_base = (432, 281)
-test_name = "test2"
+actual_base = (1388, 833)
+test_name = "test3"
 
 models = {
     "indoor_pose": "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model",
