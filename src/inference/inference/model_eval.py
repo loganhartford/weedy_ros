@@ -11,7 +11,7 @@ url = "http://10.0.0.171:8000"
 neo = Pi5Neo('/dev/spidev0.0', 16, 800)
 a = 1.0
 
-actual_base = (1251, 417)
+actual_base = (559, 292)
 test_name = "test5"
 
 models = {
