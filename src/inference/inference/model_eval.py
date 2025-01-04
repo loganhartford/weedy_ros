@@ -11,8 +11,8 @@ url = "http://10.0.0.171:8000"
 neo = Pi5Neo('/dev/spidev0.0', 16, 800)
 a = 1.0
 
-actual_base = (1191, 498)
-test_name = "test1"
+actual_base = (432, 281)
+test_name = "test2"
 
 models = {
     "indoor_pose": "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model",
@@ -59,7 +59,7 @@ def main():
     # Run inference
     for iter in range(5):
         # Get image
-        
+
         image_path = get_image()
 
         for model_name, model in loaded_models.items():
@@ -93,7 +93,7 @@ def main():
                         if all(tensor.numpy() != 0):
                             distance = euclidean_distance(actual_base, (tensor[0], tensor[1]))
                             confidence = tensor[2]
-                            if distance < best_distance:
+                            if best_confidence < confidence:
                                 best_distance = distance
                                 best_confidence = confidence
                             break
