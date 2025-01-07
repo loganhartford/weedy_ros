@@ -7,9 +7,9 @@ import time
 
 from custom_msgs.msg import Keypoint, KeypointSet, Inference, CartesianCmd, Points
 
-class ControllerNode(Node):
+class DecisionsNode(Node):
     def __init__(self):
-        super().__init__('controller_node')
+        super().__init__('decisions_node')
 
         # Subscribers
         self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
@@ -172,7 +172,7 @@ class ControllerNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ControllerNode()
+    node = DecisionsNode()
 
     try:
         rclpy.spin(node)
