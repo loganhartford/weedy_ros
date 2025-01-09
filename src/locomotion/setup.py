@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            f'locomotion = {package_name}.locomotion:main'
+            f'controller = {package_name}.controller:main'
         ],
     },
 )

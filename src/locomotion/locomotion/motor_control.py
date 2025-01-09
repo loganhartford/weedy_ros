@@ -1,20 +1,13 @@
-import rclpy
-from rclpy.node import Node
-from geometry_msgs.msg import Twist
+#!/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3
 
-import time
 from rpi_hardware_pwm import HardwarePWM
 import lgpio
 
 FORWARD = 1
 BACKWARD = 0
 
-class MotorControlNode(Node):
+class MotorController:
     def __init__(self):
-        super().__init__('motor_control')
-
-        self.cmd_vel_subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
-
         self.motor1 = HardwarePWM(pwm_channel=0, hz=20000, chip=2)
         self.motor2 = HardwarePWM(pwm_channel=1, hz=20000, chip=2)
         self.motor1.start(0)
@@ -31,10 +24,7 @@ class MotorControlNode(Node):
         self.rated_speed = 25.13274 # rad/s -> 240 RPM
         self.max_speed = 0.8        # m/s -> ~ 3km/h
 
-    def cmd_vel_callback(self, msg):
-        linear_x = msg.linear.x
-        angular_z = msg.angular.z
-
+    def set_velocity(self, linear_x, angular_z):
         # Ensure the requested speed does not exceed the maximum speed
         if abs(linear_x) > self.max_speed:
             linear_x = self.max_speed if linear_x > 0 else -self.max_speed
@@ -59,20 +49,9 @@ class MotorControlNode(Node):
         self.motor1.change_duty_cycle(left_duty_cycle)
         self.motor2.change_duty_cycle(right_duty_cycle)
 
-    def destroy_node(self):
+    def stop(self):
         self.motor1.stop()
         self.motor2.stop()
         lgpio.gpiochip_close(self.chip)
-        super().destroy_node()
 
-def main(args=None):
-    rclpy.init(args=args)
-    node = MotorControlNode()
-    try:
-        rclpy.spin(node)
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
 
-if __name__ == '__main__':
-    main()

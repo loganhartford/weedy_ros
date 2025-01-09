@@ -9,24 +9,12 @@ def generate_launch_description():
             name='decisions',
             output='screen'
         ),
-        # Node(
-        #     package='gpio',
-        #     executable='button_publisher',
-        #     name='button_publisher',
-        #     output='screen'
-        # ),
         Node(
             package='camera_package',
             executable='camera',
             name='camera',
             output='screen'
         ),
-        # Node(
-        #     package='gpio',
-        #     executable='led_subscriber',
-        #     name='led_subscriber',
-        #     output='screen'
-        # ),
         Node(
             package='inference',
             executable='inference',
@@ -43,16 +31,11 @@ def generate_launch_description():
         ),
         Node(
             package='locomotion',
-            executable='locomotion',
-            name='locomotion',
+            executable='controller',
+            name='controller',
             output='screen',
+            # prefix='/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3',
         ),
-        # Node(
-        #     package='homography',
-        #     executable='homography',
-        #     name='homography',
-        #     output='screen',
-        # ),
         Node(
             package='uart',
             executable='uart',
