@@ -3,7 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
-from motor_control import MotorController
+from .motor_control import MotorController
 
 class ControllerNode(Node):
     def __init__(self):

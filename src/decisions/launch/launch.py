@@ -34,7 +34,7 @@ def generate_launch_description():
             executable='controller',
             name='controller',
             output='screen',
-            # prefix='/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3',
+            prefix='/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3',
         ),
         Node(
             package='uart',
