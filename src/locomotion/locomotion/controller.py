@@ -3,7 +3,8 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
-from .motor_control import MotorController
+from locomotion.motor_control import MotorController
+from locomotion.localization import LocalizationNode
 
 class ControllerNode(Node):
     def __init__(self):
@@ -11,6 +12,8 @@ class ControllerNode(Node):
         self.cmd_vel_subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.cmd_pose_subscription = self.create_subscription(PoseStamped, '/cmd_pose', self.cmd_pose_callback, 10)
         self.motor_controller = MotorController()
+
+        self.localization_node = LocalizationNode()
 
     def cmd_vel_callback(self, msg):
         self.motor_controller.set_velocity(msg.linear.x, msg.angular.z)
@@ -20,6 +23,7 @@ class ControllerNode(Node):
 
     def destroy_node(self):
         self.motor_controller.stop()
+        self.localization_node.destroy_node() 
         super().destroy_node()
 
 def main(args=None):
