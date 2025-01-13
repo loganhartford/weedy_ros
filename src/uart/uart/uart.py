@@ -15,7 +15,6 @@ class UartNode(Node):
         self.state_publisher = self.create_publisher(CartesianCmd, "/cartesian_state", 10)
         self.tick_publisher = self.create_publisher(Int32MultiArray, "/ticks", 10)
 
-
         # Initialize the serial connection
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
         self.ack_timeout = 1 # s
@@ -64,7 +63,7 @@ class UartNode(Node):
                 # Publish the ticks as an Int32MultiArray
                 msg = Int32MultiArray()
                 msg.data = [ticks1, ticks2]
-                print(f"Ticks: {msg.data}")
+                # print(f"Ticks: {msg.data}")
                 self.tick_publisher.publish(msg)
 
                 # Remove the processed message from the buffer
