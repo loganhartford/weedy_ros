@@ -21,6 +21,7 @@ class UartNode(Node):
         self.ack_timeout = 1 # s
 
         # Reading ticks
+        self.running = True
         self.polling_event = threading.Event()
         self.polling_event.set()  # Allow the polling thread to run
         self.polling_thread = threading.Thread(target=self.poll_serial_data)
@@ -28,30 +29,34 @@ class UartNode(Node):
         self.polling_thread.start()
 
     def poll_serial_data(self):
-        while True:
-            self.polling_event.wait()
+        buffer = bytearray()
+        while self.running:
+            self.polling_event.wait() # Used to pause
 
-            # Check if there are enough bytes available for a complete message
-            if self.ser.in_waiting >= 10:
-                data = self.ser.read(10)
+            data = self.ser.read(self.ser.in_waiting or 1)
+            if data:
+                buffer.extend(data)
 
-                # Validate the start byte
-                if data[0] != 0xAE:
-                    self.get_logger().warning(f"Invalid start byte: {data[0]}")
-                    continue
+            while buffer and buffer[0] != 0xAE:
+                buffer.pop(0)  # Remove invalid byte
+
+            # Process complete messages
+            while len(buffer) >= 10:
+                message = buffer[:10]
 
                 # Validate the checksum
-                checksum = sum(data[:-1]) % 256
-                if checksum != data[-1]:
-                    self.get_logger().warning("Checksum does not match. Discarding message.")
-                    continue
+                checksum = sum(message[:-1]) % 256
+                if checksum != message[-1]:
+                    self.get_logger().warning("Checksum mismatch. Discarding message.")
+                    buffer.pop(0)  # Discard the start byte and retry
+                    break
 
                 # Parse the ticks values
-                ticks1 = (data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]
-                ticks2 = (data[5] << 24) | (data[6] << 16) | (data[7] << 8) | data[8]
+                ticks1 = (message[1] << 24) | (message[2] << 16) | (message[3] << 8) | message[4]
+                ticks2 = (message[5] << 24) | (message[6] << 16) | (message[7] << 8) | message[8]
 
                 # Handle signed integers
-                if ticks1 & (1 << 31):  # If the most significant bit is set
+                if ticks1 & (1 << 31):
                     ticks1 -= (1 << 32)  # Convert to signed 32-bit integer
                 if ticks2 & (1 << 31):
                     ticks2 -= (1 << 32)
@@ -59,7 +64,11 @@ class UartNode(Node):
                 # Publish the ticks as an Int32MultiArray
                 msg = Int32MultiArray()
                 msg.data = [ticks1, ticks2]
+                print(f"Ticks: {msg.data}")
                 self.tick_publisher.publish(msg)
+
+                # Remove the processed message from the buffer
+                buffer = buffer[10:]
 
         
     def cmd_cartesian_callback(self, msg):
@@ -185,8 +194,8 @@ class UartNode(Node):
         return False, None, None
 
     def destroy_node(self):
-        self.polling_event.clear()
-        self.serial_thread.join()
+        self.running = False
+        self.polling_thread.join()
         self.ser.close()
         super().destroy_node()
 
@@ -200,7 +209,7 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        # rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
