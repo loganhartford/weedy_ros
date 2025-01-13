@@ -2,23 +2,70 @@ import rclpy
 from rclpy.node import Node
 import serial
 import time
+import threading
 
 from custom_msgs.msg import CartesianCmd
+from std_msgs.msg import Int32MultiArray
 
 class UartNode(Node):
     def __init__(self):
         super().__init__('uart_node')
 
         self.subscriber = self.create_subscription(CartesianCmd, "/cmd_cartesian", self.cmd_cartesian_callback, 10)
-        self.publisher = self.create_publisher(CartesianCmd, "/cartesian_state", 10)
+        self.state_publisher = self.create_publisher(CartesianCmd, "/cartesian_state", 10)
+        self.tick_publisher = self.create_publisher(Int32MultiArray, "/ticks", 10)
 
 
         # Initialize the serial connection
-        self.ser = serial.Serial('/dev/ttyAMA0', baudrate=9600, timeout=0.1)
+        self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
         self.ack_timeout = 1 # s
-        # self.data_timeout = 15 # s
 
+        # Reading ticks
+        self.polling_event = threading.Event()
+        self.polling_event.set()  # Allow the polling thread to run
+        self.polling_thread = threading.Thread(target=self.poll_serial_data)
+        self.polling_thread.daemon = True  # Ensure the thread exits when the program exits
+        self.polling_thread.start()
+
+    def poll_serial_data(self):
+        while True:
+            self.polling_event.wait()
+
+            # Check if there are enough bytes available for a complete message
+            if self.ser.in_waiting >= 10:
+                data = self.ser.read(10)
+
+                # Validate the start byte
+                if data[0] != 0xAE:
+                    self.get_logger().warning(f"Invalid start byte: {data[0]}")
+                    continue
+
+                # Validate the checksum
+                checksum = sum(data[:-1]) % 256
+                if checksum != data[-1]:
+                    self.get_logger().warning("Checksum does not match. Discarding message.")
+                    continue
+
+                # Parse the ticks values
+                ticks1 = (data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4]
+                ticks2 = (data[5] << 24) | (data[6] << 16) | (data[7] << 8) | data[8]
+
+                # Handle signed integers
+                if ticks1 & (1 << 31):  # If the most significant bit is set
+                    ticks1 -= (1 << 32)  # Convert to signed 32-bit integer
+                if ticks2 & (1 << 31):
+                    ticks2 -= (1 << 32)
+
+                # Publish the ticks as an Int32MultiArray
+                msg = Int32MultiArray()
+                msg.data = [ticks1, ticks2]
+                self.tick_publisher.publish(msg)
+
+        
     def cmd_cartesian_callback(self, msg):
+        # Prevent the polling thread from running while sending a command
+        self.polling_event.clear()
+
         message = self.construct_message(0x01, msg.axis, msg.position)
         self.ser.write(message)
         self.get_logger().info(f"Sent Command: Axis {msg.axis}, Position {msg.position}")
@@ -35,14 +82,17 @@ class UartNode(Node):
             response_msg = CartesianCmd()
             response_msg.axis = resp_axis
             response_msg.position = resp_position
-            self.publisher.publish(response_msg)
+            self.state_publisher.publish(response_msg)
             self.get_logger().info(f"Received Data: Axis {resp_axis}, Position {resp_position}")
         else:
             response_msg = CartesianCmd()
             response_msg.axis = -1
             response_msg.position = -1
-            self.publisher.publish(response_msg)
+            self.state_publisher.publish(response_msg)
             self.get_logger().warning("Timeout waiting for data message from Nucleo.")
+        
+        # Allow the polling thread to run again
+        self.polling_event.set()
 
     def construct_message(self, message_type, axis, position):
         if message_type not in [0x01, 0x02, 0x03, 0x04]:
@@ -134,6 +184,11 @@ class UartNode(Node):
 
         return False, None, None
 
+    def destroy_node(self):
+        self.polling_event.clear()
+        self.serial_thread.join()
+        self.ser.close()
+        super().destroy_node()
 
 def main(args=None):
     rclpy.init(args=args)

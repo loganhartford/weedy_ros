@@ -37,7 +37,7 @@ def parse_message(message):
     return message_type, axis, position
 
 def main():
-    ser = serial.Serial('/dev/ttyAMA0', baudrate=9600, timeout=0.1)
+    ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
 
     try:
         while True:
