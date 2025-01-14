@@ -37,12 +37,15 @@ class LocalizationNode(Node):
     def update_odometry(self, msg):
         if self.last_ticks_left == None and self.last_ticks_right == None:
             self.last_ticks_left, self.last_ticks_right = msg.data
+            self.last_time = self.get_clock().now()
             return
         ticks_left, ticks_right = msg.data
         delta_ticks_left = ticks_left - self.last_ticks_left
         delta_ticks_right = ticks_right - self.last_ticks_right
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
+
+        # print(f"Delta ticks: {delta_ticks_left}, Delta Time: {self.last_time - self.get_clock().now()}")
 
         # Compute wheel displacements
         d_left = (delta_ticks_left / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
@@ -92,7 +95,7 @@ class LocalizationNode(Node):
         odom_msg.twist.twist.angular.z = avg_angular_velocity
 
         # print(f"X: {self.x}, Y: {self.y}, Theta: {self.theta}")
-        print(f"Linear Velocity: {avg_linear_velocity}")
+        # print(f"Linear Velocity: {avg_linear_velocity}")
 
         self.odom_publisher.publish(odom_msg)
     

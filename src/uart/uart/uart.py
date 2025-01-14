@@ -29,6 +29,8 @@ class UartNode(Node):
 
     def poll_serial_data(self):
         buffer = bytearray()
+        last_time = self.get_clock().now()
+        last_ticks = 0
         while self.running:
             self.polling_event.wait() # Used to pause
 
@@ -42,6 +44,9 @@ class UartNode(Node):
             # Process complete messages
             while len(buffer) >= 10:
                 message = buffer[:10]
+
+                cur_time = self.get_clock().now()
+                
 
                 # Validate the checksum
                 checksum = sum(message[:-1]) % 256
@@ -59,6 +64,10 @@ class UartNode(Node):
                     ticks1 -= (1 << 32)  # Convert to signed 32-bit integer
                 if ticks2 & (1 << 31):
                     ticks2 -= (1 << 32)
+
+                # print(f"Delta ticks: {ticks1 - last_ticks}, Delta Time: {cur_time - last_time}")
+                last_time = cur_time
+                last_ticks = ticks1
 
                 # Publish the ticks as an Int32MultiArray
                 msg = Int32MultiArray()

@@ -28,7 +28,7 @@ class ControllerNode(Node):
 
         self.linear_pid=PID_ctrl(klp, klv, kli)
         self.angular_pid=PID_ctrl(kap, kav, kai)
-        self.control_timer = self.create_timer(0.01, self.control_loop)
+        self.control_timer = self.create_timer(0.1, self.control_loop)
         self.linear_error_tolerance = 0.01 # 1cm TODO: tune this
         self.angular_error_tolerance = 0.05 # rad TODO: tune this
 
