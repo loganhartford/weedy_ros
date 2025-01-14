@@ -82,7 +82,7 @@ def plot_pose_data(df):
 
 def main():
     # File paths to the logs
-    pid_log_file_path = "pid_log.csv"
+    pid_log_file_path = "lin_pid_log.csv"
     pose_log_file_path = "pose_log.csv"
 
     # Load and plot the PID data
