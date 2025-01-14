@@ -41,7 +41,6 @@ def generate_launch_description():
             executable='localization',
             name='localization',
             output='screen',
-            prefix='/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3',
         ),
         Node(
             package='uart',

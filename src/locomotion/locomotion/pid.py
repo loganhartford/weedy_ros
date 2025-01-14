@@ -17,11 +17,6 @@ class PID_ctrl:
         self.history = []
     
     def update(self, stamped_error):
-        return self.__update(stamped_error)
-
-        
-    def __update(self, stamped_error):
-        
         latest_error = stamped_error[0]
         stamp = stamped_error[1]
         

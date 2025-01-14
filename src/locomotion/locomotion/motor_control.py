@@ -3,7 +3,7 @@
 from rpi_hardware_pwm import HardwarePWM
 import lgpio
 
-from robot_params import wheel_radius, wheel_base, rated_speed, max_speed
+from robot_params import wheel_radius, wheel_base, rated_speed, min_duty_cycle
 
 FORWARD = 1
 BACKWARD = 0
@@ -23,14 +23,9 @@ class MotorController:
 
         self.wheel_radius = wheel_radius    # meters -> 5in
         self.wheel_base = wheel_base        # meters TODO: update this value
-        self.rated_speed = rated_speed      # rad/s -> 240 RPM
-        self.max_speed = max_speed          # m/s -> ~ 3km/h
+        self.rated_speed = rated_speed      # rad/s -> 230 RPM
 
     def set_velocity(self, linear_x, angular_z):
-        # Ensure the requested speed does not exceed the maximum speed
-        if abs(linear_x) > self.max_speed:
-            linear_x = self.max_speed if linear_x > 0 else -self.max_speed
-
         # Calculate wheel velocities in m/s
         left_wheel_velocity = linear_x - angular_z * self.wheel_base / 2
         right_wheel_velocity = linear_x + angular_z * self.wheel_base / 2
@@ -48,6 +43,13 @@ class MotorController:
         lgpio.gpio_write(self.chip, self.motor2dir, FORWARD if right_wheel_velocity >= 0 else BACKWARD)
 
         # Update motor PWM duty cycles
+        if left_duty_cycle > 0:
+            left_duty_cycle = max(left_duty_cycle, min_duty_cycle)
+        
+        if right_duty_cycle > 0:
+            right_duty_cycle = max(right_duty_cycle, min_duty_cycle)
+
+        print(f"Left: {left_wheel_velocity} m/s, Right: {right_wheel_velocity} m/s")
         self.motor1.change_duty_cycle(left_duty_cycle)
         self.motor2.change_duty_cycle(right_duty_cycle)
 

@@ -4,9 +4,12 @@ import time
 pwm = HardwarePWM(pwm_channel=0, hz=20000, chip=2)
 pwm.start(0)
 
+# pwm.change_duty_cycle(10)
+# time.sleep(1)
+
 try:
     while True:
-        pwm.change_duty_cycle(10)
+        pwm.change_duty_cycle(4)
 
 except KeyboardInterrupt:
     pass

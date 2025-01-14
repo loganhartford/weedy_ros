@@ -2,10 +2,10 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, PoseStamped, Odometry
+from geometry_msgs.msg import Twist, PoseStamped
+from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 from locomotion.motor_control import MotorController
-from locomotion.localization import LocalizationNode
 
 from pid import PID_ctrl
 from utilities import calculate_pos_error, calculate_velocity_error
@@ -34,7 +34,6 @@ class ControllerNode(Node):
 
     def cmd_vel_callback(self, msg):
         self.velocity_target = msg
-
         # End control if the velocity target is 0
         if self.velocity_target.linear.x == 0 and self.velocity_target.angular.z == 0:
             self.reset_control()
@@ -70,12 +69,16 @@ class ControllerNode(Node):
         linear_vel = self.linear_pid.update([linear_error, stamp])
         angular_vel = self.angular_pid.update([angluar_error, stamp])
 
+        
+
         # Bound velocities
         if abs(linear_vel) > max_linear_speed:
             linear_vel = max_linear_speed if linear_vel > 0 else -max_linear_speed
         if abs(angular_vel) > max_angular_speed:
             angular_vel = max_angular_speed if angular_vel > 0 else -max_angular_speed
         
+        # print(linear_vel)
+
         self.motor_controller.set_velocity(linear_vel, angular_vel)
 
     def reset_control(self):
@@ -85,7 +88,6 @@ class ControllerNode(Node):
 
     def destroy_node(self):
         self.motor_controller.stop()
-        self.localization_node.destroy_node() 
         super().destroy_node()
 
 def main(args=None):
