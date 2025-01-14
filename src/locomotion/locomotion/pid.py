@@ -2,14 +2,14 @@ from rclpy.time import Time
 
 class PID_ctrl:
     
-    def __init__(self, type_, kp=1.2, kv=0.8, ki=0.2, history_length=3, log_file="pid_log.csv"):
+    def __init__(self, kp, kd, ki, history_length=10, log_file="pid_log.csv"):
         # Data for the controller
         self.history_length = history_length
         self.history = []
 
         # Controller gains
         self.kp = kp
-        self.kv = kv
+        self.kd = kd
         self.ki = ki
 
         # Logging setup
@@ -29,11 +29,8 @@ class PID_ctrl:
         if len(self.history) > self.history_length:
             self.history.pop(0)
         
-        # If insufficient data points, use only the proportional gain
         if len(self.history) != self.history_length:
-            control_output = self.kp * latest_error
-            self.log_data(stamp, latest_error, control_output, 0, 0, control_output)
-            return control_output
+            return self.kp * latest_error
         
         # Compute the error derivative
         dt_avg = 0
@@ -43,8 +40,8 @@ class PID_ctrl:
             t0 = Time.from_msg(self.history[i-1][1])
             t1 = Time.from_msg(self.history[i][1])
             
-            dt = (t1.nanoseconds - t0.nanoseconds) / 1e9
-            dt_avg += dt
+            dt = max((t1.nanoseconds - t0.nanoseconds) / 1e9, 1e-6)
+            dt_avg += dt   
 
             error_dot += (self.history[i][0] - self.history[i - 1][0]) / dt
             
@@ -58,7 +55,7 @@ class PID_ctrl:
         # Compute PID terms
         p_term = self.kp * latest_error
         i_term = self.ki * error_int
-        d_term = self.kv * error_dot
+        d_term = self.kd * error_dot
 
         # Compute total control output
         control_output = p_term + i_term + d_term

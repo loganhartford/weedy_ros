@@ -35,8 +35,3 @@ def normalize_angle(angle):
     if angle > M_PI:
         angle -= 2 * M_PI
     return angle
-
-def calculate_velocity_error(current_velocity, target_velocity):
-    linear_error = target_velocity.linear.x - current_velocity.linear.x
-    angular_error = target_velocity.angular.z - current_velocity.angular.z
-    return linear_error, angular_error

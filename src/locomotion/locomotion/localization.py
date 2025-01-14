@@ -59,8 +59,6 @@ class LocalizationNode(Node):
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9
         self.last_time = stamp
 
-        # print(f"Delta ticks: {delta_ticks_left}, Delta Time: {self.last_time - self.get_clock().now()}")
-
         # Compute wheel displacements
         d_left = (delta_ticks_left / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
         d_right = (delta_ticks_right / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
@@ -107,7 +105,7 @@ class LocalizationNode(Node):
         odom_msg.twist.twist.angular.z = angular_velocity
 
         # print(f"X: {self.x}, Y: {self.y}, Theta: {self.theta}")
-        # print(f"Linear Velocity: {avg_linear_velocity}")
+        # print(f"Delta ticks: {delta_ticks_left}, Delta Time: {delta_time}, Velocity: {linear_velocity}")
 
         self.odom_publisher.publish(odom_msg)
         return odom_msg

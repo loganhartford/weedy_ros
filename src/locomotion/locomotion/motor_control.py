@@ -5,8 +5,8 @@ import lgpio
 
 from robot_params import wheel_radius, wheel_base, rated_speed, min_duty_cycle
 
-FORWARD = 1
-BACKWARD = 0
+FORWARD = 0
+BACKWARD = 1
 
 class MotorController:
     def __init__(self):
@@ -42,14 +42,13 @@ class MotorController:
         lgpio.gpio_write(self.chip, self.motor1dir, FORWARD if left_wheel_velocity >= 0 else BACKWARD)
         lgpio.gpio_write(self.chip, self.motor2dir, FORWARD if right_wheel_velocity >= 0 else BACKWARD)
 
-        # Update motor PWM duty cycles
-        if left_duty_cycle > 0:
-            left_duty_cycle = max(left_duty_cycle, min_duty_cycle)
+        # # Update motor PWM duty cycles
+        # if left_duty_cycle > 0:
+        #     left_duty_cycle = max(left_duty_cycle, min_duty_cycle)
         
-        if right_duty_cycle > 0:
-            right_duty_cycle = max(right_duty_cycle, min_duty_cycle)
+        # if right_duty_cycle > 0:
+        #     right_duty_cycle = max(right_duty_cycle, min_duty_cycle)
 
-        print(f"Left: {left_wheel_velocity} m/s, Right: {right_wheel_velocity} m/s")
         self.motor1.change_duty_cycle(left_duty_cycle)
         self.motor2.change_duty_cycle(right_duty_cycle)
 

@@ -35,6 +35,7 @@ def plot_pid_data(df):
     # Plot control output
     plt.subplot(2, 1, 2)
     plt.plot(df["Timestamp"], df["Control_Output"], label="Control Output", color="purple")
+    plt.plot(df["Timestamp"], [0.6 for _ in range(len(df["Control_Output"]))], label="Target", color="red")
     plt.title("Control Output Over Time")
     plt.xlabel("Time (s)")
     plt.ylabel("Control Output")
