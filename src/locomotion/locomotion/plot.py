@@ -1,10 +1,16 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Load the PID log data
+# Load PID log data
 def load_pid_log(file_path):
     """Load PID data from a CSV file into a Pandas DataFrame."""
     columns = ["Timestamp", "Error", "P_Term", "I_Term", "D_Term", "Control_Output"]
+    return pd.read_csv(file_path, names=columns, skiprows=1)
+
+# Load pose log data
+def load_pose_log(file_path):
+    """Load pose data from a CSV file into a Pandas DataFrame."""
+    columns = ["Timestamp", "X", "Y", "Z", "Orientation_Z", "Orientation_W"]
     return pd.read_csv(file_path, names=columns, skiprows=1)
 
 # Plot the PID data
@@ -35,24 +41,57 @@ def plot_pid_data(df):
     # Plot control output
     plt.subplot(2, 1, 2)
     plt.plot(df["Timestamp"], df["Control_Output"], label="Control Output", color="purple")
-    plt.plot(df["Timestamp"], [0.6 for _ in range(len(df["Control_Output"]))], label="Target", color="red")
     plt.title("Control Output Over Time")
     plt.xlabel("Time (s)")
     plt.ylabel("Control Output")
     plt.grid()
     plt.legend()
 
-    # Adjust layout and show the plot
+    # Adjust layout and save the plot
     plt.tight_layout()
     plt.savefig("pid_plot.png")
 
-def main():
-    # File path to the PID log
-    log_file_path = "pid_log.csv"
+# Plot the robot's pose data
+def plot_pose_data(df):
+    """Plot the robot's trajectory (X vs. Y) and orientation over time."""
+    plt.figure(figsize=(12, 8))
 
-    # Load and plot the data
-    df = load_pid_log(log_file_path)
-    plot_pid_data(df)
+    # Plot X vs. Y trajectory
+    plt.subplot(2, 1, 1)
+    plt.plot(df["X"], df["Y"], label="Trajectory", color="blue")
+    plt.title("Robot Trajectory (X vs. Y)")
+    plt.xlabel("X Position (m)")
+    plt.ylabel("Y Position (m)")
+    plt.grid()
+    plt.legend()
+
+    # Plot orientation (Z and W components of quaternion)
+    plt.subplot(2, 1, 2)
+    plt.plot(df["Timestamp"], df["Orientation_Z"], label="Orientation Z", color="red")
+    plt.plot(df["Timestamp"], df["Orientation_W"], label="Orientation W", color="orange")
+    plt.title("Orientation Over Time")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Orientation (Quaternion)")
+    plt.grid()
+    plt.legend()
+
+    # Adjust layout and save the plot
+    plt.tight_layout()
+    plt.savefig("pose_plot.png")
+
+
+def main():
+    # File paths to the logs
+    pid_log_file_path = "pid_log.csv"
+    pose_log_file_path = "pose_log.csv"
+
+    # Load and plot the PID data
+    pid_df = load_pid_log(pid_log_file_path)
+    plot_pid_data(pid_df)
+
+    # Load and plot the pose data
+    pose_df = load_pose_log(pose_log_file_path)
+    plot_pose_data(pose_df)
 
 if __name__ == "__main__":
     main()

@@ -56,3 +56,6 @@ qtcreator-*
 CATKIN_IGNORE
 
 core
+
+*.csv
+*.png
