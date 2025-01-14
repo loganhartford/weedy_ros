@@ -3,6 +3,8 @@
 from rpi_hardware_pwm import HardwarePWM
 import lgpio
 
+from robot_params import wheel_radius, wheel_base, rated_speed, max_speed
+
 FORWARD = 1
 BACKWARD = 0
 
@@ -19,10 +21,10 @@ class MotorController:
         lgpio.gpio_claim_output(self.chip, self.motor1dir)
         lgpio.gpio_claim_output(self.chip, self.motor2dir)
 
-        self.wheel_radius = 0.127   # meters -> 5in
-        self.wheel_base = 0.381     # meters TODO: update this value
-        self.rated_speed = 25.13274 # rad/s -> 240 RPM
-        self.max_speed = 0.8        # m/s -> ~ 3km/h
+        self.wheel_radius = wheel_radius    # meters -> 5in
+        self.wheel_base = wheel_base        # meters TODO: update this value
+        self.rated_speed = rated_speed      # rad/s -> 240 RPM
+        self.max_speed = max_speed          # m/s -> ~ 3km/h
 
     def set_velocity(self, linear_x, angular_z):
         # Ensure the requested speed does not exceed the maximum speed

@@ -1,19 +1,18 @@
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Quaternion
 from std_msgs.msg import Int32MultiArray
-
-from robot_params import wheel_radius, wheel_base, ticks_per_revolution
 import math
 
+from robot_params import wheel_radius, wheel_base, ticks_per_revolution
+from utilities import create_quaternion_from_yaw
 
 class LocalizationNode(Node):
     def __init__(self):
         super().__init__('Localization')
 
         self.tick_subscriber = self.create_subscription(Int32MultiArray, '/ticks', self.update_odometry, 1)
-        self.odom_publisher = self.create_publisher(Odometry, '/odom', 10)
+        self.odom_publisher = self.create_publisher(Odometry, '/odom', 1)
 
         # Robot parameters
         self.wheel_radius = wheel_radius
@@ -70,7 +69,7 @@ class LocalizationNode(Node):
         # Pose
         odom_msg.pose.pose.position.x = self.x
         odom_msg.pose.pose.position.y = self.y
-        odom_msg.pose.pose.orientation = self.create_quaternion_from_yaw(self.theta)
+        odom_msg.pose.pose.orientation = create_quaternion_from_yaw(self.theta)
 
         # Twist
         odom_msg.twist.twist.linear.x = linear_velocity
@@ -81,17 +80,7 @@ class LocalizationNode(Node):
 
         self.odom_publisher.publish(odom_msg)
 
-    @staticmethod
-    def create_quaternion_from_yaw(yaw):
-        """
-        Create a Quaternion from a yaw angle (in radians).
-        """
-        return Quaternion(
-            x=0.0,
-            y=0.0,
-            z=math.sin(yaw / 2.0),
-            w=math.cos(yaw / 2.0)
-        )
+    
 
 
 def main(args=None):
