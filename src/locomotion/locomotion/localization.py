@@ -9,12 +9,13 @@ import numpy as np
 from robot_params import wheel_radius, wheel_base, ticks_per_revolution
 from utilities import create_quaternion_from_yaw
 
+from uart.uart import UartNode
+
 class LocalizationNode(Node):
     def __init__(self):
         super().__init__('Localization')
 
-        self.tick_subscriber = self.create_subscription(Int32MultiArray, '/ticks', self.update_odometry, 1)
-        self.odom_publisher = self.create_publisher(Odometry, '/odom', 1)
+        self.odom_publisher = self.create_publisher(Odometry, '/odom', 10)
 
         # Robot parameters
         self.wheel_radius = wheel_radius
@@ -27,23 +28,36 @@ class LocalizationNode(Node):
         self.theta = 0.0  # rad
         self.last_ticks_left = None
         self.last_ticks_right = None
-        self.history_size = 7
-        self.linear_velocity_history = np.zeros(self.history_size)
-        self.angular_velocity_history = np.zeros(self.history_size)
-        self.history_index = 0
+        # self.history_size = 7
+        # self.linear_velocity_history = np.zeros(self.history_size)
+        # self.angular_velocity_history = np.zeros(self.history_size)
+        # self.history_index = 0
 
         self.last_time = self.get_clock().now()
 
-    def update_odometry(self, msg):
+        self.uart_node = UartNode()
+        self.update_odometry()
+
+    def update_odometry(self):
+
+        ticks_left, ticks_right, stamp = self.uart_node.get_ticks()
+
+        if ticks_left == "e" or ticks_right == "e":
+            return "e"
+
         if self.last_ticks_left == None and self.last_ticks_right == None:
-            self.last_ticks_left, self.last_ticks_right = msg.data
-            self.last_time = self.get_clock().now()
-            return
-        ticks_left, ticks_right = msg.data
+            self.last_ticks_left = ticks_left
+            self.last_ticks_right = ticks_right
+            self.last_time = stamp
+            return "e"
+        
         delta_ticks_left = ticks_left - self.last_ticks_left
         delta_ticks_right = ticks_right - self.last_ticks_right
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
+        
+        delta_time = (stamp - self.last_time).nanoseconds * 1e-9
+        self.last_time = stamp
 
         # print(f"Delta ticks: {delta_ticks_left}, Delta Time: {self.last_time - self.get_clock().now()}")
 
@@ -54,11 +68,6 @@ class LocalizationNode(Node):
         # Compute linear and angular displacements
         d = (d_left + d_right) / 2.0
         delta_theta = (d_right - d_left) / self.wheel_base
-
-        # Update the pose
-        current_time = self.get_clock().now()
-        delta_time = (current_time - self.last_time).nanoseconds * 1e-9  # Convert to seconds
-        self.last_time = current_time
 
         # Midpoint method for pose update
         self.x += d * math.cos(self.theta + delta_theta / 2.0)
@@ -74,7 +83,7 @@ class LocalizationNode(Node):
 
         # Publish odometry
         odom_msg = Odometry()
-        odom_msg.header.stamp = current_time.to_msg()
+        odom_msg.header.stamp = stamp.to_msg()
         odom_msg.header.frame_id = "odom"
         odom_msg.child_frame_id = "base_link"
 
@@ -85,19 +94,23 @@ class LocalizationNode(Node):
 
         # Twist
         # Moving average filter
-        self.linear_velocity_history[self.history_index] = linear_velocity
-        self.angular_velocity_history[self.history_index] = angular_velocity
-        self.history_index = (self.history_index + 1) % self.history_size
-        avg_linear_velocity = np.mean(self.linear_velocity_history)
-        avg_angular_velocity = np.mean(self.angular_velocity_history)
+        # self.linear_velocity_history[self.history_index] = linear_velocity
+        # self.angular_velocity_history[self.history_index] = angular_velocity
+        # self.history_index = (self.history_index + 1) % self.history_size
+        # avg_linear_velocity = np.mean(self.linear_velocity_history)
+        # avg_angular_velocity = np.mean(self.angular_velocity_history)
 
-        odom_msg.twist.twist.linear.x = avg_linear_velocity
-        odom_msg.twist.twist.angular.z = avg_angular_velocity
+        # odom_msg.twist.twist.linear.x = avg_linear_velocity
+        # odom_msg.twist.twist.angular.z = avg_angular_velocity
+
+        odom_msg.twist.twist.linear.x = linear_velocity
+        odom_msg.twist.twist.angular.z = angular_velocity
 
         # print(f"X: {self.x}, Y: {self.y}, Theta: {self.theta}")
         # print(f"Linear Velocity: {avg_linear_velocity}")
 
         self.odom_publisher.publish(odom_msg)
+        return odom_msg
     
     def destroy_node(self):
         super().destroy_node()

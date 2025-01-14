@@ -19,71 +19,47 @@ class UartNode(Node):
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
         self.ack_timeout = 1 # s
 
-        # Reading ticks
-        self.running = True
-        self.polling_event = threading.Event()
-        self.polling_event.set()  # Allow the polling thread to run
-        self.polling_thread = threading.Thread(target=self.poll_serial_data)
-        self.polling_thread.daemon = True  # Ensure the thread exits when the program exits
-        self.polling_thread.start()
+    def get_ticks(self):
+        if self.ser.in_waiting:
+            self.ser.reset_input_buffer()
+        
+        buffer = construct_message(0xAE, 0, 0)
+        byte_to_send = bytes([0xAE])  # Create a single-byte bytes object
+        self.ser.write(byte_to_send)       # Write the byte to the serial port
 
-    def poll_serial_data(self):
         buffer = bytearray()
-        last_time = self.get_clock().now()
-        last_ticks = 0
-        while self.running:
-            self.polling_event.wait() # Used to pause
-
+        while len(buffer) < 10:
             data = self.ser.read(self.ser.in_waiting or 1)
             if data:
                 buffer.extend(data)
-
-            while buffer and buffer[0] != 0xAE:
-                buffer.pop(0)  # Remove invalid byte
-
-            # Process complete messages
-            while len(buffer) >= 10:
-                message = buffer[:10]
-
-                cur_time = self.get_clock().now()
-                
-
-                # Validate the checksum
-                checksum = sum(message[:-1]) % 256
-                if checksum != message[-1]:
-                    self.get_logger().warning("Checksum mismatch. Discarding message.")
-                    buffer.pop(0)  # Discard the start byte and retry
-                    break
-
-                # Parse the ticks values
-                ticks1 = (message[1] << 24) | (message[2] << 16) | (message[3] << 8) | message[4]
-                ticks2 = (message[5] << 24) | (message[6] << 16) | (message[7] << 8) | message[8]
-
-                # Handle signed integers
-                if ticks1 & (1 << 31):
-                    ticks1 -= (1 << 32)  # Convert to signed 32-bit integer
-                if ticks2 & (1 << 31):
-                    ticks2 -= (1 << 32)
-
-                # print(f"Delta ticks: {ticks1 - last_ticks}, Delta Time: {cur_time - last_time}")
-                last_time = cur_time
-                last_ticks = ticks1
-
-                # Publish the ticks as an Int32MultiArray
-                msg = Int32MultiArray()
-                msg.data = [ticks1, ticks2]
-                # print(f"Ticks: {msg.data}")
-                self.tick_publisher.publish(msg)
-
-                # Remove the processed message from the buffer
-                buffer = buffer[10:]
-
+        stamp = self.get_clock().now()
         
-    def cmd_cartesian_callback(self, msg):
-        # Prevent the polling thread from running while sending a command
-        self.polling_event.clear()
+        # Validate start byte
+        if buffer[0] != 0xAE:
+            self.get_logger().warning("Start byte mismatch. Discarding message.")
+            return "e", "e", stamp
+        
+        # Validate the checksum
+        checksum = sum(buffer[:-1]) % 256
+        if checksum != buffer[-1]:
+            self.get_logger().warning("Checksum mismatch. Discarding message.")
+            return -1, -1, stamp
 
-        message = self.construct_message(0x01, msg.axis, msg.position)
+        # Parse the ticks values
+        ticks1 = (buffer[1] << 24) | (buffer[2] << 16) | (buffer[3] << 8) | buffer[4]
+        ticks2 = (buffer[5] << 24) | (buffer[6] << 16) | (buffer[7] << 8) | buffer[8]
+
+        # Handle signed integers
+        if ticks1 & (1 << 31):
+            ticks1 -= (1 << 32)  # Convert to signed 32-bit integer
+        if ticks2 & (1 << 31):
+            ticks2 -= (1 << 32)
+
+        return ticks1, ticks2, stamp
+
+
+    def cmd_cartesian_callback(self, msg):
+        message = construct_message(0x01, msg.axis, msg.position)
         self.ser.write(message)
         self.get_logger().info(f"Sent Command: Axis {msg.axis}, Position {msg.position}")
 
@@ -107,44 +83,6 @@ class UartNode(Node):
             response_msg.position = -1
             self.state_publisher.publish(response_msg)
             self.get_logger().warning("Timeout waiting for data message from Nucleo.")
-        
-        # Allow the polling thread to run again
-        self.polling_event.set()
-
-    def construct_message(self, message_type, axis, position):
-        if message_type not in [0x01, 0x02, 0x03, 0x04]:
-            raise ValueError("Invalid message type.")
-
-        if axis not in [0, 1, 2]:
-            raise ValueError("Axis must be 0, 1, or 2.")
-
-        if not (0 <= position <= 450):
-            raise ValueError("Position must be between 0 and 450.")
-        
-        pos_high = (position >> 8) & 0xFF
-        pos_low = position & 0xFF
-        checksum = (message_type + axis + pos_high + pos_low) % 256
-        message = bytes([message_type, axis, pos_high, pos_low, checksum])
-        
-        return message
-
-    def parse_message(self, message):
-        if len(message) != 5:
-            raise ValueError("Message must be 5 bytes long.")
-        
-        message_type = message[0]
-        axis = message[1]
-        pos_high = message[2]
-        pos_low = message[3]
-        checksum = message[4]
-        
-        calculated_checksum = (message_type + axis + pos_high + pos_low) % 256
-        if checksum != calculated_checksum:
-            raise ValueError("Checksum does not match.")
-        
-        position = (pos_high << 8) | pos_low
-        
-        return message_type, axis, position
 
     def wait_for_acknowledgment(self):
         start_time = time.time()
@@ -158,7 +96,7 @@ class UartNode(Node):
                 while len(buffer) >= 5:
                     message = buffer[:5]
                     try:
-                        message_type, resp_axis, resp_position = self.parse_message(message)
+                        message_type, resp_axis, resp_position = parse_message(message)
                         if message_type == 0x03:
                             buffer = buffer[5:]  # Remove processed message
                             return True
@@ -186,7 +124,7 @@ class UartNode(Node):
                 while len(buffer) >= 5:
                     message = buffer[:5]
                     try:
-                        message_type, resp_axis, resp_position = self.parse_message(message)
+                        message_type, resp_axis, resp_position = parse_message(message)
                         if message_type == 0x02:  # Data message type
                             buffer = buffer[5:]  # Remove processed message
                             return True, resp_axis, resp_position
@@ -202,10 +140,31 @@ class UartNode(Node):
         return False, None, None
 
     def destroy_node(self):
-        self.running = False
-        self.polling_thread.join()
         self.ser.close()
         super().destroy_node()
+
+def construct_message(message_type, axis, position):
+    pos_high = (position >> 8) & 0xFF
+    pos_low = position & 0xFF
+    checksum = (message_type + axis + pos_high + pos_low) % 256
+    message = bytes([message_type, axis, pos_high, pos_low, checksum])
+    
+    return message
+
+def parse_message(message):
+    message_type = message[0]
+    axis = message[1]
+    pos_high = message[2]
+    pos_low = message[3]
+    checksum = message[4]
+    
+    calculated_checksum = (message_type + axis + pos_high + pos_low) % 256
+    if checksum != calculated_checksum:
+        raise ValueError("Checksum does not match.")
+    
+    position = (pos_high << 8) | pos_low
+    
+    return message_type, axis, position
 
 def main(args=None):
     rclpy.init(args=args)
