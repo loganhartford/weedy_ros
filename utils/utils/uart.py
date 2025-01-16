@@ -8,7 +8,6 @@ from utils.exceptions import UARTError
 class UART:
     def __init__(self):
          self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
-
          self.clock = Clock()
 
     def get_ticks(self):

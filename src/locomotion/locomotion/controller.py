@@ -11,7 +11,7 @@ from locomotion.localization import LocalizationNode
 import locomotion.plot
 from locomotion.pid import PID_ctrl
 from utils.utilities import calculate_pos_error
-from utils.robot_params import max_linear_speed, max_angular_speed, max_motor_linear_speed
+from utils.robot_params import max_linear_speed, max_angular_speed, max_motor_linear_speed, min_motor_linear_speed
 
 LOG = False
 
@@ -19,7 +19,7 @@ class ControllerNode(Node):
     # TODO: Tune angluar with second motor
     # TODO: Tune both on real robot
     def __init__(self, klp=1.2, kld=0.0, kli=2.0, kap=1.2, kad=0.0, kai=1.0,log_file="outputs/pose_log.csv"):
-        super().__init__('Controller')
+        super().__init__('controller')
         self.cmd_vel_subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.cmd_pose_subscription = self.create_subscription(PoseStamped, '/cmd_pose', self.cmd_pose_callback, 10)
 
@@ -29,7 +29,7 @@ class ControllerNode(Node):
         self.velocity_target = Twist()
         self.last_linear_velocity = 0.0
         self.last_angular_velocity = 0.0
-        self.alpha = 0.05  # TODO: tune for how agressively the robot should stop
+        self.alpha = 0.1  # TODO: tune for how agressively the robot should stop
 
         self.motor_controller = MotorController()
         self.localization_node = LocalizationNode()
@@ -44,7 +44,8 @@ class ControllerNode(Node):
             self.log_file = log_file
             self.setup_logger()
         
-        self.get_logger().info(f"Controller Init")
+        self.logger = self.get_logger()
+        self.logger.info("Controller Init Complete")
     
     def cmd_vel_callback(self, msg):
         self.velocity_target = msg
@@ -62,7 +63,7 @@ class ControllerNode(Node):
 
         # We have a pose target
         if self.goal_pose.pose.position.x != 0 or self.goal_pose.pose.position.y != 0 or self.goal_pose.pose.orientation.z != 0:
-            linear_error, angluar_error = calculate_pos_error(current_odom.pose.pose, self.goal_pose.pose)
+            linear_error, angular_error = calculate_pos_error(current_odom.pose.pose, self.goal_pose.pose)
 
             # Check if we reached the goal
             if linear_error < self.linear_error_tolerance:
@@ -73,7 +74,7 @@ class ControllerNode(Node):
         
             stamp = current_odom.header.stamp
             linear_vel = self.linear_pid.update([linear_error, stamp])
-            angular_vel = self.angular_pid.update([angluar_error, stamp])
+            angular_vel = self.angular_pid.update([angular_error, stamp])
 
             # Bound velocities
             if abs(linear_vel) > max_linear_speed:
@@ -105,11 +106,6 @@ class ControllerNode(Node):
         # we keep the motor runing if the requested vel is greater than 0
         smooth_linear_vel = round(smooth_linear_vel, 2)
         smooth_angular_vel = round(smooth_angular_vel, 2)
-
-        if smooth_linear_vel == 0:
-            self.velocity_target.linear.x = 0.0
-        if smooth_angular_vel == 0:
-            self.velocity_target.angular.z = 0.0
 
         self.motor_controller.set_velocity(smooth_linear_vel, smooth_angular_vel)
         
