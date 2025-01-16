@@ -13,7 +13,6 @@ class UartNode(Node):
 
         self.subscriber = self.create_subscription(CartesianCmd, "/cmd_cartesian", self.cmd_cartesian_callback, 10)
         self.state_publisher = self.create_publisher(CartesianCmd, "/cartesian_state", 10)
-        self.tick_publisher = self.create_publisher(Int32MultiArray, "/ticks", 10)
 
         # Initialize the serial connection
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)

@@ -1,4 +1,4 @@
-#!/mnt/shared/weedy_ros/src/inference/inference/yolo_env/bin/python3
+#!/mnt/shared/weedy_ros/src/decisions/decisions/venv/bin/python3
 
 import numpy as np
 import cv2
@@ -13,7 +13,7 @@ MODEL_ERROR = -1
 class YOLOModel:
     def __init__(self):
         # YOLO Model
-        self.model_path = "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model"
+        self.model_path = "/mnt/shared/weedy_ros/src/decisions/decisions/models/indoor_pose_ncnn_model"
         self.model = YOLO(self.model_path, task="pose", verbose=False)
 
         # Camera server
@@ -21,7 +21,7 @@ class YOLOModel:
         self.image = None
 
     def run_inference(self, msg):
-        self.img = self.request_img()
+        self.img = self.get_img()
         if self.img == CAMERA_ERROR:
             return CAMERA_ERROR
 
@@ -34,13 +34,13 @@ class YOLOModel:
                 return None
             else:
                 # NOTE: Optionally save the image
-                result.save("/mnt/shared/weedy_ros/src/inference/inference/result.jpg")
+                result.save("/mnt/shared/weedy_ros/src/decisions/decisions/outputs/result.jpg")
                 return result
 
         except Exception as e:
             return MODEL_ERROR
     
-    def request_img(self):
+    def get_img(self):
         try:
             response = requests.get(self.image_url)
             response.raise_for_status()

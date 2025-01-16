@@ -1,11 +1,13 @@
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point
+from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool, String
+from custom_msgs.msg import Inference, CartesianCmd
 
-import time
+import numpy as np
+import cv2
 
-from custom_msgs.msg import Keypoint, KeypointSet, Inference, CartesianCmd, Points
+from yolo_model import YOLOModel
 
 class DecisionsNode(Node):
     def __init__(self):
@@ -13,20 +15,12 @@ class DecisionsNode(Node):
 
         # Subscribers
         self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
-        self.keypoints_subscription = self.create_subscription(Inference, '/keypoints', self.keypoints_callback, 10)
         self.cartesian_state_subscription = self.create_subscription(CartesianCmd, '/cartesian_state', self.cartesian_state_callback, 10)
 
         # Publishers
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         self.cmd_cartesian_publisher = self.create_publisher(CartesianCmd, '/cmd_cartesian', 10)
-        self.get_img_publisher = self.create_publisher(Bool, '/get_img', 10)
 
-        # Axis encodings
-        self.x_axis = 0 
-        self.y_axis = 1
-        self.z_axis = 2
-
-        # Logical parameters
         self.y_axis_alignment_tolerance = 5 # mm
 
         # State
@@ -34,8 +28,24 @@ class DecisionsNode(Node):
         self.no_points_count = 0
         self.no_points_threshold = 3
 
-        # Dandelion detection
+        # Computer Vision
+        self.cv = YOLOModel()
         self.confidence_threshold = 0.8
+
+        # Homography
+        self.pixel_points = np.array([
+            [265, 443], [258, 874], [1633, 869], [1625, 440]
+                                                ], dtype=np.float32)
+        self.ground_points = np.array([
+            [101.4, -48.33], [0, -48.33], [0, 271.67], [101.4, 271.67]
+                                                ], dtype=np.float32)
+        self.H, _ = cv2.findHomography(self.pixel_points, self.ground_points)
+
+        """ To use later:
+        # Filter by box confidence
+        result.keypoints = result.keypoints[result.boxes.conf >= self.confidence_threshold]
+        result.boxes = result.boxes[result.boxes.conf >= self.confidence_threshold]
+        """
     
     def transition_to_state(self, state):
         if self.state == state:
@@ -152,12 +162,12 @@ class DecisionsNode(Node):
         else:
             self.transition_to_state("searching")
         
+    def homography_transform(self, pixel):
+        image_point = np.array([pixel[0], pixel[1], 1], dtype=np.float32)
+        ground_point = np.dot(self.H, image_point)
+        ground_point /= ground_point[2]
 
-    def publish_img_request(self):
-        msg = Bool()
-        msg.data = True
-        self.get_img_publisher.publish(msg)
-        self.get_logger().info(f"Image requested.")
+        return ground_point[:2]
     
     def publish_twist(self, linear, angular):
         msg = Twist()
@@ -167,8 +177,8 @@ class DecisionsNode(Node):
         self.velocities = [linear, angular]
         self.get_logger().info(f"Setting linear: {linear}, angular: {angular}")
 
-    
-
+    def destroy_node(self):
+        super().destroy_node()
 
 def main(args=None):
     rclpy.init(args=args)
@@ -180,7 +190,6 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
