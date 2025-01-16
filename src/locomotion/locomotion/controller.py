@@ -18,7 +18,7 @@ import plot
 class ControllerNode(Node):
     # TODO: Tune angluar with second motor
     # TODO: Tune both on real robot
-    def __init__(self, klp=1.2, kld=0.0, kli=2.0, kap=1.2, kad=0.0, kai=1.0,log_file="pose_log.csv"):
+    def __init__(self, klp=1.2, kld=0.0, kli=2.0, kap=1.2, kad=0.0, kai=1.0,log_file="outputs/pose_log.csv"):
         super().__init__('Controller')
         self.cmd_vel_subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.cmd_pose_subscription = self.create_subscription(PoseStamped, '/cmd_pose', self.cmd_pose_callback, 10)
@@ -34,8 +34,8 @@ class ControllerNode(Node):
         self.motor_controller = MotorController()
         self.localization_node = LocalizationNode()
 
-        self.linear_pid=PID_ctrl(klp, kld, kli, log_file="lin_pid_log.csv")
-        self.angular_pid=PID_ctrl(kap, kad, kai, log_file="ang_pid_log.csv")
+        self.linear_pid=PID_ctrl(klp, kld, kli, log_file="outputs/lin_pid_log.csv")
+        self.angular_pid=PID_ctrl(kap, kad, kai, log_file="outputs/ang_pid_log.csv")
         self.control_timer = self.create_timer(0.01, self.control_loop)
         self.linear_error_tolerance = 0.01 # 1cm TODO: tune this
         self.angular_error_tolerance = 0.1 # rad TODO: tune this

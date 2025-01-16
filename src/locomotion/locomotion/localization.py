@@ -100,7 +100,8 @@ class LocalizationNode(Node):
         # Pose
         odom_msg.pose.pose.position.x = self.x
         odom_msg.pose.pose.position.y = self.y
-        odom_msg.pose.pose.orientation = create_quaternion_from_yaw(self.theta)
+        # odom_msg.pose.pose.orientation = create_quaternion_from_yaw(self.theta)
+        odom_msg.pose.pose.orientation.z = self.theta
 
         # Twist
         odom_msg.twist.twist.linear.x = linear_velocity

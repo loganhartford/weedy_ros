@@ -14,7 +14,7 @@ def load_pose_log(file_path):
     return pd.read_csv(file_path, names=columns, skiprows=1)
 
 # Plot the PID data
-def plot_pid_data(df):
+def plot_pid_data(df, filename):
     """Plot the PID components and control output."""
     plt.figure(figsize=(12, 8))
 
@@ -49,7 +49,7 @@ def plot_pid_data(df):
 
     # Adjust layout and save the plot
     plt.tight_layout()
-    plt.savefig("pid_plot.png")
+    plt.savefig(filename)
 
 # Plot the robot's pose data
 def plot_pose_data(df):
@@ -77,17 +77,21 @@ def plot_pose_data(df):
 
     # Adjust layout and save the plot
     plt.tight_layout()
-    plt.savefig("pose_plot.png")
+    plt.savefig("outputs/pose_plot.png")
 
 
 def main():
     # File paths to the logs
-    pid_log_file_path = "lin_pid_log.csv"
-    pose_log_file_path = "pose_log.csv"
+    pid_log_file_path = "outputs/lin_pid_log.csv"
+    pid_ang_log_file_path = "outputs/ang_pid_log.csv"
+    pose_log_file_path = "outputs/pose_log.csv"
 
     # Load and plot the PID data
     pid_df = load_pid_log(pid_log_file_path)
-    plot_pid_data(pid_df)
+    plot_pid_data(pid_df, "outputs/lin_pid_plot.png")
+
+    pid_ang_df = load_pid_log(pid_ang_log_file_path)
+    plot_pid_data(pid_ang_df, "outputs/ang_pid_plot.png")
 
     # Load and plot the pose data
     pose_df = load_pose_log(pose_log_file_path)
