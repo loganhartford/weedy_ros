@@ -61,7 +61,7 @@ class ControllerNode(Node):
             linear_error, angluar_error = calculate_pos_error(current_odom.pose.pose, self.goal_pose.pose)
 
             # Check if we reached the goal
-            if linear_error < self.linear_error_tolerance and angluar_error < self.angular_error_tolerance:
+            if linear_error < self.linear_error_tolerance:
                 self.reset_control()
                 self.get_logger().info(f"goal_reached")
                 self.cmd_publisher.publish(String(data="goal_reached"))

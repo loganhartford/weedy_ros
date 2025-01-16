@@ -16,7 +16,7 @@ def calculate_pos_error(current_pose, goal_pose):
     goal_y = goal_pose.position.y
     current_x = current_pose.position.x
     current_y = current_pose.position.y
-    theta = current_pose.orientation.z
+    theta = 2 * atan2(current_pose.orientation.z, current_pose.orientation.w)
     
     # Map theta between -pi and pi
     theta = normalize_angle(theta) 
