@@ -19,7 +19,7 @@ class YOLOModel:
         self.image_url = "http://10.0.0.171:8000"
         self.image = None
 
-    def run_inference(self, msg):
+    def run_inference(self, save=False):
         try:
             self.img = self.get_img()
         except CameraError:
@@ -33,8 +33,7 @@ class YOLOModel:
             if len(result) == 0:
                 return None
             else:
-                # NOTE: Optionally save the image
-                result.save("/mnt/shared/weedy_ros/src/decisions/decisions/outputs/result.jpg")
+                if save: result.save("/mnt/shared/weedy_ros/src/decisions/decisions/outputs/result.jpg")
                 return result
 
         except Exception as e:
@@ -52,3 +51,8 @@ class YOLOModel:
         
         except requests.exceptions.RequestException as e:
             raise CameraError("Error fetching image from camera") from e
+    
+    def capture_and_save_image(self, filename="captured_image.jpg"):
+        img = self.get_img()
+
+        cv2.imwrite(filename, img)

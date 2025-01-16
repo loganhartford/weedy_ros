@@ -5,10 +5,17 @@ from std_msgs.msg import String
 
 import numpy as np
 import cv2
+from enum import Enum, auto
 
 from utils.uart import UART
 from utils.neopixel_ring import NeoPixelRing
 from decisions.yolo_model import YOLOModel
+
+class State(Enum):
+    IDLE = auto()
+    EXPLORING = auto()
+    ALIGNING = auto()
+    WAITING = auto()
 
 class DecisionsNode(Node):
     def __init__(self):
@@ -30,7 +37,7 @@ class DecisionsNode(Node):
 
         # Computer Vision
         self.cv = YOLOModel()
-        self.confidence_threshold = 0.8
+        self.conf_thresh = 0.8
         self.led_ring = NeoPixelRing()
 
         # Homography
@@ -44,29 +51,66 @@ class DecisionsNode(Node):
 
         """ To use later:
         # Filter by box confidence
-        result.keypoints = result.keypoints[result.boxes.conf >= self.confidence_threshold]
-        result.boxes = result.boxes[result.boxes.conf >= self.confidence_threshold]
+        
         """
+
+        # Valid state transitions
+        self.valid_transitions = {
+            State.IDLE: [State.EXPLORING],
+            State.EXPLORING: [State.IDLE, State.ALIGNING],
+            State.ALIGNING: [State.IDLE, State.WAITING],
+            State.WAITING: [State.IDLE, State.EXPLORING],
+        }
 
         self.get_logger().info(f"Decisions Init")
 
-    def cmd_callback(self, msg):
-        if msg.data == "start":
-            self.transition_to_state("searching")
-        elif msg.data == "stop":
-            self.transition_to_state("idle")
-        elif msg.data == "test":
-            self.transition_to_state("test")
-        # For dev
-        elif msg.data == "get_img":
-            self.publish_img_request()
-        elif msg.data == "test_uart":
-            self.uart.send_command(1, 100)
-        else:
-            self.get_logger().error(f"'{msg}' is not a valid command.")
-        
+    def serach(self):
+        # Look for dandelions
+        self.publish_twist(0.3, 0)
+
+        while self.state == State.EXPLORING:
+            result = self.cv.run_inference()
+
+            if result == None:
+                continue
+            
+            # Filter result by box confidence and keypoints visibility
+            valid_indices = (result.boxes.conf >= self.conf_thresh) & np.array([kp.has_visible for kp in result.keypoints])
+
+            result.keypoints = result.keypoints[valid_indices]
+            result.boxes = result.boxes[valid_indices]
+
+
+            if len(result.keypoints) == 0:
+                continue
+            
+            kp_list = []
+            # TODO: Validate
+            """
+            Idea:
+                - For each set of keypoints, take the closest to the ground if it showed up
+                - If there are multiple inference results, there could be multiple points in kp_list
+                - Taking the most confident one is not necisarrily best
+                - Also need to handle case where two dandelions are in the frame
+                    - Alwasy just take the closer one.
+                    - as you move closer to it, it will be closer.
+            """
+            for kp in result.keypoints:
+                keypoints = list(zip(["flower", "base", "upper", "lower"], kp.data[0]))
+                keypoints = sorted(keypoints, key=lambda x: ["base", "lower", "upper", "flower"].index(x[0]))
+                for name, tensor in keypoints:
+                    kp_conf = tensor[2]
+                    if tensor[2] != 0.0:
+                        kp_list.append(tensor)
+                        break
+
+
+
+
+
+    # TODO: nuke
     def keypoints_callback(self, msg):
-        if self.state != "searching" and self.state != "finding" and self.state != "test":
+        if self.state != "EXPLORING" and self.state != "ALIGNING":
             return
 
         keypoints = []
@@ -74,8 +118,8 @@ class DecisionsNode(Node):
             if not keypoint_set.has_visible:
                 continue
             # Want to stop the robot if a valid keypoint is posted
-            if self.state == "searching":
-                self.transition_to_state("finding")
+            if self.state == "EXPLORING":
+                self.transition_to_state("ALIGNING")
             
             # Take the most valid keypoint from each set of keypoints
             if keypoint_set.base.confidence > self.confidence_threshold:
@@ -90,7 +134,7 @@ class DecisionsNode(Node):
         self.process_points(keypoints)
 
     def process_points(self, points):
-        if self.state != "finding" and self.state != "test":
+        if self.state != "ALIGNING":
             return
         
         if len(points) > 0:
@@ -112,9 +156,8 @@ class DecisionsNode(Node):
             self.no_points_count += 1
             # Possibly a false positive initially, move on
             if self.no_points_count >= self.no_points_threshold:
-                self.transition_to_state("searching")
-            # else:
-            #     self.publish_img_request()
+                self.transition_to_state("EXPLORING")
+            
         
     def homography_transform(self, pixel):
         image_point = np.array([pixel[0], pixel[1], 1], dtype=np.float32)
@@ -131,43 +174,41 @@ class DecisionsNode(Node):
         self.velocities = [linear, angular]
         self.get_logger().info(f"Setting linear: {linear}, angular: {angular}")
 
-    def transition_to_state(self, state):
-        if self.state == state:
-            self.get_logger().error(f"State already {state}")
-            return
+    def cmd_callback(self, msg):
+        command_map = {
+            "start": State.EXPLORING,
+            "stop": State.IDLE,
+        }
 
-        self.get_logger().info(f"Transitioning from {self.state} to {state}.")
-
-        if self.state == "idle":
-            if state == "searching":
-                self.state = "searching"
-                self.publish_img_request()
-                self.publish_twist(0.5, 0)
-            if state == "test":
-                self.state = "test"
-        elif self.state == "searching":
-            if state == "idle":
-                self.state = "idle"
-                self.publish_twist(0, 0)
-            elif state == "finding":
-                self.state = "finding"
-                # self.publish_img_request()
-                self.publish_twist(0, 0)
-        elif self.state == "finding":
-            if state == "idle":
-                self.state = "idle"
-            elif state == "waiting":
-                self.state = "waiting"
-        elif self.state == "waiting":
-            if state == "idle":
-                self.state = "idle"
-            elif state == "searching":
-                self.state = "searching"
-                # self.publish_img_request()
-                self.publish_twist(0.5, 0)
+        if msg.data in command_map:
+            self.transition_to_state(command_map[msg.data])
+        elif msg.data == "get_img":
+            self.cv.capture_and_save_image()
         else:
-            self.get_logger().error(f"Transitioning from {self.state} to {state} is invalid.")
+            self.get_logger().error(f"'{msg}' is not a valid command.")
+
+    def transition_to_state(self, new_state):
+        if new_state == self.state:
+            self.get_logger().error(f"Already in state {self.state.name}")
             return
+
+        if new_state not in self.valid_transitions.get(self.state, []):
+            self.get_logger().error(f"Invalid transition from {self.state.name} to {new_state.name}")
+            return
+
+        self.get_logger().info(f"Transitioning from {self.state.name} to {new_state.name}")
+        self.state = new_state
+        self.on_state_entry()
+    
+    def on_state_entry(self):
+        if self.state == State.EXPLORING:
+            self.search()
+        elif self.state == State.IDLE:
+            self.publish_twist(0, 0)
+        elif self.state == State.ALIGNING:
+            self.publish_twist(0, 0)
+        elif self.state == State.WAITING:
+            pass
 
     def destroy_node(self):
         super().destroy_node()
