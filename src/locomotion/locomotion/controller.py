@@ -4,16 +4,16 @@ import rclpy
 from rclpy.node import Node
 from rclpy.time import Time
 from geometry_msgs.msg import Twist, PoseStamped
-from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 from locomotion.motor_control import MotorController
 from locomotion.localization import LocalizationNode
 
-from pid import PID_ctrl
-from utilities import calculate_pos_error
-from robot_params import max_linear_speed, max_angular_speed, max_motor_linear_speed
+import locomotion.plot
+from locomotion.pid import PID_ctrl
+from utils.utilities import calculate_pos_error
+from utils.robot_params import max_linear_speed, max_angular_speed, max_motor_linear_speed
 
-import plot
+LOG = False
 
 class ControllerNode(Node):
     # TODO: Tune angluar with second motor
@@ -40,8 +40,11 @@ class ControllerNode(Node):
         self.linear_error_tolerance = 0.01 # 1cm TODO: tune this
         self.angular_error_tolerance = 0.1 # rad TODO: tune this
 
-        self.log_file = log_file
-        self.setup_logger()
+        if LOG:
+            self.log_file = log_file
+            self.setup_logger()
+        
+        self.get_logger().info(f"Controller Init")
     
     def cmd_vel_callback(self, msg):
         self.velocity_target = msg
@@ -54,7 +57,8 @@ class ControllerNode(Node):
 
     def control_loop(self):
         current_odom = self.localization_node.update_odometry()
-        self.log_pose(current_odom)
+        if LOG:
+            self.log_pose(current_odom)
 
         # We have a pose target
         if self.goal_pose.pose.position.x != 0 or self.goal_pose.pose.position.y != 0 or self.goal_pose.pose.orientation.z != 0:
@@ -134,7 +138,7 @@ class ControllerNode(Node):
     def destroy_node(self):
         self.motor_controller.stop()
         self.localization_node.destroy_node()
-        plot.main()
+        # plot.main()
         super().destroy_node()
 
 def main(args=None):

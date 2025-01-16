@@ -1,3 +1,5 @@
+from rclpy.clock import Clock
+
 import serial
 import time
 
@@ -6,6 +8,8 @@ from utils.exceptions import UARTError
 class UART:
     def __init__(self):
          self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
+
+         self.clock = Clock()
 
     def get_ticks(self):
         if self.ser.in_waiting:
@@ -19,18 +23,16 @@ class UART:
             data = self.ser.read(self.ser.in_waiting or 1)
             if data:
                 buffer.extend(data)
-        stamp = self.get_clock().now()
+        stamp = self.clock.now()
         
         # Validate start byte
         if buffer[0] != 0xAE:
-            self.get_logger().warning("Start byte mismatch. Discarding message.")
-            return "e", "e", stamp
+            raise UARTError("Invalid start byte.")
         
         # Validate the checksum
         checksum = sum(buffer[:-1]) % 256
         if checksum != buffer[-1]:
-            self.get_logger().warning("Checksum mismatch. Discarding message.")
-            return -1, -1, stamp
+            raise UARTError("Invalid tick checksum.")
 
         # Parse the ticks values
         ticks1 = (buffer[1] << 8) | buffer[2]

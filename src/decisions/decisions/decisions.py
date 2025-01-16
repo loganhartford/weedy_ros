@@ -1,14 +1,14 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from std_msgs.msg import Bool, String
-from custom_msgs.msg import Inference, CartesianCmd
+from std_msgs.msg import String
 
 import numpy as np
 import cv2
-from utils.uart import UART
 
-from yolo_model import YOLOModel
+from utils.uart import UART
+from utils.neopixel_ring import NeoPixelRing
+from decisions.yolo_model import YOLOModel
 
 class DecisionsNode(Node):
     def __init__(self):
@@ -16,7 +16,6 @@ class DecisionsNode(Node):
 
         # Subscribers
         self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
-        self.cartesian_state_subscription = self.create_subscription(CartesianCmd, '/cartesian_state', self.cartesian_state_callback, 10)
 
         # Publishers
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -32,6 +31,7 @@ class DecisionsNode(Node):
         # Computer Vision
         self.cv = YOLOModel()
         self.confidence_threshold = 0.8
+        self.led_ring = NeoPixelRing()
 
         # Homography
         self.pixel_points = np.array([
@@ -47,6 +47,8 @@ class DecisionsNode(Node):
         result.keypoints = result.keypoints[result.boxes.conf >= self.confidence_threshold]
         result.boxes = result.boxes[result.boxes.conf >= self.confidence_threshold]
         """
+
+        self.get_logger().info(f"Decisions Init")
 
     def cmd_callback(self, msg):
         if msg.data == "start":
@@ -113,12 +115,6 @@ class DecisionsNode(Node):
                 self.transition_to_state("searching")
             # else:
             #     self.publish_img_request()
-
-    def cartesian_state_callback(self, msg):
-        if msg.axis == -1:
-            self.transition_to_state("idle")
-        else:
-            self.transition_to_state("searching")
         
     def homography_transform(self, pixel):
         image_point = np.array([pixel[0], pixel[1], 1], dtype=np.float32)

@@ -1,5 +1,7 @@
 from rclpy.time import Time
 
+LOG = False
+
 class PID_ctrl:
     
     def __init__(self, kp, kd, ki, history_length=10, log_file="outputs/pid_log.csv"):
@@ -13,9 +15,10 @@ class PID_ctrl:
         self.ki = ki
 
         # Logging setup
-        self.log_file = log_file
-        with open(self.log_file, "w") as file:
-            file.write("Timestamp,Error,P_Term,I_Term,D_Term,Control_Output\n")  # CSV Header
+        if LOG:
+            self.log_file = log_file
+            with open(self.log_file, "w") as file:
+                file.write("Timestamp,Error,P_Term,I_Term,D_Term,Control_Output\n")  # CSV Header
 
     def clear_history(self):
         self.history = []
@@ -60,8 +63,8 @@ class PID_ctrl:
         # Compute total control output
         control_output = p_term + i_term + d_term
 
-        # Log the data
-        self.log_data(stamp, latest_error, p_term, i_term, d_term, control_output)
+        if LOG:
+            self.log_data(stamp, latest_error, p_term, i_term, d_term, control_output)
 
         return control_output
 

@@ -6,8 +6,8 @@ from std_msgs.msg import String
 import math
 import numpy as np
 
-from robot_params import wheel_radius, wheel_base, ticks_per_revolution
-from utilities import create_quaternion_from_yaw
+from utils.robot_params import wheel_radius, wheel_base, ticks_per_revolution
+from utils.utilities import create_quaternion_from_yaw
 
 from utils.uart import UART
 

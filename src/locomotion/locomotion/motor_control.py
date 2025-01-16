@@ -3,7 +3,7 @@
 from rpi_hardware_pwm import HardwarePWM
 import lgpio
 
-from robot_params import wheel_radius, wheel_base, rated_speed, min_duty_cycle
+from utils.robot_params import wheel_radius, wheel_base, rated_speed, min_duty_cycle
 
 # TODO: validate on robot
 FORWARD = 0
