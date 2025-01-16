@@ -28,10 +28,6 @@ class LocalizationNode(Node):
         self.theta = 0.0  # rad
         self.last_ticks_left = None
         self.last_ticks_right = None
-        # self.history_size = 7
-        # self.linear_velocity_history = np.zeros(self.history_size)
-        # self.angular_velocity_history = np.zeros(self.history_size)
-        # self.history_index = 0
 
         self.last_time = self.get_clock().now()
 
@@ -45,14 +41,29 @@ class LocalizationNode(Node):
         if ticks_left == "e" or ticks_right == "e":
             return "e"
 
-        if self.last_ticks_left == None and self.last_ticks_right == None:
+        if self.last_ticks_left is None and self.last_ticks_right is None:
             self.last_ticks_left = ticks_left
             self.last_ticks_right = ticks_right
             self.last_time = stamp
             return "e"
         
+        # Handle tick rollover
+        max_ticks = 2**15 - 1
+        min_ticks = -2**15
+
         delta_ticks_left = ticks_left - self.last_ticks_left
         delta_ticks_right = ticks_right - self.last_ticks_right
+
+        if delta_ticks_left > max_ticks / 2:
+            delta_ticks_left -= (max_ticks - min_ticks + 1)
+        elif delta_ticks_left < min_ticks / 2:
+            delta_ticks_left += (max_ticks - min_ticks + 1)
+
+        if delta_ticks_right > max_ticks / 2:
+            delta_ticks_right -= (max_ticks - min_ticks + 1)
+        elif delta_ticks_right < min_ticks / 2:
+            delta_ticks_right += (max_ticks - min_ticks + 1)
+
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
         
@@ -91,21 +102,8 @@ class LocalizationNode(Node):
         odom_msg.pose.pose.orientation = create_quaternion_from_yaw(self.theta)
 
         # Twist
-        # Moving average filter
-        # self.linear_velocity_history[self.history_index] = linear_velocity
-        # self.angular_velocity_history[self.history_index] = angular_velocity
-        # self.history_index = (self.history_index + 1) % self.history_size
-        # avg_linear_velocity = np.mean(self.linear_velocity_history)
-        # avg_angular_velocity = np.mean(self.angular_velocity_history)
-
-        # odom_msg.twist.twist.linear.x = avg_linear_velocity
-        # odom_msg.twist.twist.angular.z = avg_angular_velocity
-
         odom_msg.twist.twist.linear.x = linear_velocity
         odom_msg.twist.twist.angular.z = angular_velocity
-
-        # print(f"X: {self.x}, Y: {self.y}, Theta: {self.theta}")
-        # print(f"Delta ticks: {delta_ticks_left}, Delta Time: {delta_time}, Velocity: {linear_velocity}")
 
         self.odom_publisher.publish(odom_msg)
         return odom_msg
