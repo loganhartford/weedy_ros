@@ -54,8 +54,6 @@ class UartNode(Node):
         if ticks2 & (1 << 15):
             ticks2 -= (1 << 16)
 
-        print(f"ticks1: {ticks1}, ticks2 {ticks2}")
-
         return ticks1, ticks2, stamp
 
 

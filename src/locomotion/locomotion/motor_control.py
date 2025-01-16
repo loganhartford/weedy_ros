@@ -44,10 +44,10 @@ class MotorController:
         lgpio.gpio_write(self.chip, self.motor2dir, FORWARD if right_wheel_velocity >= 0 else BACKWARD)
 
         # Motors won't move unless duty cycle is greater than 3
-        if left_duty_cycle > 1:
+        if left_duty_cycle > 0:
             left_duty_cycle = max(left_duty_cycle, min_duty_cycle)
         
-        if right_duty_cycle > 1:
+        if right_duty_cycle > 0:
             right_duty_cycle = max(right_duty_cycle, min_duty_cycle)
 
         self.motor1.change_duty_cycle(left_duty_cycle)

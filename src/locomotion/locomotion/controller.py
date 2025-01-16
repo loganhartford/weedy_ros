@@ -11,12 +11,14 @@ from locomotion.localization import LocalizationNode
 
 from pid import PID_ctrl
 from utilities import calculate_pos_error
-from robot_params import max_linear_speed, max_angular_speed
+from robot_params import max_linear_speed, max_angular_speed, max_motor_linear_speed
+
+import plot
 
 class ControllerNode(Node):
     # TODO: Tune angluar with second motor
     # TODO: Tune both on real robot
-    def __init__(self, klp=5.0, kld=0.5, kli=40.0, kap=1.0, kad=0.2, kai=0.2,log_file="pose_log.csv"):
+    def __init__(self, klp=1.2, kld=0.0, kli=2.0, kap=1.2, kad=0.0, kai=1.0,log_file="pose_log.csv"):
         super().__init__('Controller')
         self.cmd_vel_subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.cmd_pose_subscription = self.create_subscription(PoseStamped, '/cmd_pose', self.cmd_pose_callback, 10)
@@ -77,7 +79,7 @@ class ControllerNode(Node):
         
             self.motor_controller.set_velocity(linear_vel, angular_vel)
             return
-            
+        
         # Open loop velocity control with gain scheduling
         target_linear_vel = self.velocity_target.linear.x
         target_angular_vel = self.velocity_target.angular.z
@@ -95,12 +97,24 @@ class ControllerNode(Node):
         if abs(smooth_angular_vel) > max_angular_speed:
             smooth_angular_vel = max_angular_speed if smooth_angular_vel > 0 else -max_angular_speed
 
+        # This is so the motor will actually shut off since in motor control
+        # we keep the motor runing if the requested vel is greater than 0
+        smooth_linear_vel = round(smooth_linear_vel, 2)
+        smooth_angular_vel = round(smooth_angular_vel, 2)
+
+        if smooth_linear_vel == 0:
+            self.velocity_target.linear.x = 0.0
+        if smooth_angular_vel == 0:
+            self.velocity_target.angular.z = 0.0
+
         self.motor_controller.set_velocity(smooth_linear_vel, smooth_angular_vel)
-        return
         
     def reset_control(self):
         self.linear_pid.clear_history()
         self.angular_pid.clear_history()
+        self.goal_pose.pose.position.x = 0
+        self.goal_pose.pose.position.y = 0
+        self.goal_pose.pose.orientation.z = 0
         self.motor_controller.set_velocity(0, 0)
     
     def setup_logger(self):
@@ -120,6 +134,7 @@ class ControllerNode(Node):
     def destroy_node(self):
         self.motor_controller.stop()
         self.localization_node.destroy_node()
+        plot.main()
         super().destroy_node()
 
 def main(args=None):

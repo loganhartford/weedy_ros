@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Int32MultiArray
+from std_msgs.msg import String
 
 import math
 import numpy as np
@@ -16,6 +16,7 @@ class LocalizationNode(Node):
         super().__init__('Localization')
 
         self.odom_publisher = self.create_publisher(Odometry, '/odom', 10)
+        self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
 
         # Robot parameters
         self.wheel_radius = wheel_radius
@@ -108,6 +109,12 @@ class LocalizationNode(Node):
         self.odom_publisher.publish(odom_msg)
         return odom_msg
     
+    def cmd_callback(self, msg):
+        if msg.data == "reset_odom":
+            self.x = 0.0  # m
+            self.y = 0.0  # m
+            self.theta = 0.0  # rad
+
     def destroy_node(self):
         super().destroy_node()
 
