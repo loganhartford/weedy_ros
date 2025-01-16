@@ -23,12 +23,11 @@ class UartNode(Node):
         if self.ser.in_waiting:
             self.ser.reset_input_buffer()
         
-        buffer = construct_message(0xAE, 0, 0)
         byte_to_send = bytes([0xAE])  # Create a single-byte bytes object
-        self.ser.write(byte_to_send)       # Write the byte to the serial port
+        self.ser.write(byte_to_send)  # Write the byte to the serial port
 
         buffer = bytearray()
-        while len(buffer) < 10:
+        while len(buffer) < 6:  # Expecting 6 bytes: start byte, 2 bytes per tick, and checksum
             data = self.ser.read(self.ser.in_waiting or 1)
             if data:
                 buffer.extend(data)
@@ -46,14 +45,16 @@ class UartNode(Node):
             return -1, -1, stamp
 
         # Parse the ticks values
-        ticks1 = (buffer[1] << 24) | (buffer[2] << 16) | (buffer[3] << 8) | buffer[4]
-        ticks2 = (buffer[5] << 24) | (buffer[6] << 16) | (buffer[7] << 8) | buffer[8]
+        ticks1 = (buffer[1] << 8) | buffer[2]
+        ticks2 = (buffer[3] << 8) | buffer[4]
 
-        # Handle signed integers
-        if ticks1 & (1 << 31):
-            ticks1 -= (1 << 32)  # Convert to signed 32-bit integer
-        if ticks2 & (1 << 31):
-            ticks2 -= (1 << 32)
+        # Handle signed 16-bit integers
+        if ticks1 & (1 << 15):
+            ticks1 -= (1 << 16)  # Convert to signed 16-bit integer
+        if ticks2 & (1 << 15):
+            ticks2 -= (1 << 16)
+
+        print(f"ticks1: {ticks1}, ticks2 {ticks2}")
 
         return ticks1, ticks2, stamp
 
@@ -176,7 +177,6 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        # rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

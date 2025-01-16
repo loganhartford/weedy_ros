@@ -127,6 +127,8 @@ def main(args=None):
     node = ControllerNode()
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     finally:
         node.destroy_node()
 
