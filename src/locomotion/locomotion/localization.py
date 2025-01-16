@@ -9,7 +9,7 @@ import numpy as np
 from robot_params import wheel_radius, wheel_base, ticks_per_revolution
 from utilities import create_quaternion_from_yaw
 
-from uart.uart import UartNode
+from utils.uart import UART
 
 class LocalizationNode(Node):
     def __init__(self):
@@ -32,12 +32,12 @@ class LocalizationNode(Node):
 
         self.last_time = self.get_clock().now()
 
-        self.uart_node = UartNode()
+        self.uart = UART()
         self.update_odometry()
 
     def update_odometry(self):
 
-        ticks_left, ticks_right, stamp = self.uart_node.get_ticks()
+        ticks_left, ticks_right, stamp = self.uart.get_ticks()
 
         if ticks_left == "e" or ticks_right == "e":
             return "e"

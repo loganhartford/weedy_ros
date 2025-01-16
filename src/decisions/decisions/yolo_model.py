@@ -7,8 +7,7 @@ from ultralytics import YOLO
 from PIL import Image as PILImage
 from io import BytesIO
 
-CAMERA_ERROR = -2
-MODEL_ERROR = -1
+from utils.exceptions import ModelError, CameraError
 
 class YOLOModel:
     def __init__(self):
@@ -21,9 +20,10 @@ class YOLOModel:
         self.image = None
 
     def run_inference(self, msg):
-        self.img = self.get_img()
-        if self.img == CAMERA_ERROR:
-            return CAMERA_ERROR
+        try:
+            self.img = self.get_img()
+        except CameraError:
+            return None
 
         try:
             # Run inference
@@ -38,7 +38,7 @@ class YOLOModel:
                 return result
 
         except Exception as e:
-            return MODEL_ERROR
+            raise ModelError("Error during model inference") from e
     
     def get_img(self):
         try:
@@ -51,4 +51,4 @@ class YOLOModel:
             return image_np
         
         except requests.exceptions.RequestException as e:
-            return CAMERA_ERROR
+            raise CameraError("Error fetching image from camera") from e

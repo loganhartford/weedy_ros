@@ -7,20 +7,14 @@ def generate_launch_description():
             package='decisions',
             executable='decisions',
             name='decisions',
-            output='screen'
+            output='screen',
+            prefix='/mnt/shared/weedy_ros/src/decisions/decisions/venv/bin/python3'
         ),
         Node(
             package='camera_package',
             executable='camera',
             name='camera',
             output='screen'
-        ),
-        Node(
-            package='inference',
-            executable='inference',
-            name='inference',
-            output='screen',
-            prefix='/mnt/shared/weedy_ros/src/inference/inference/yolo_env/bin/python3',
         ),
         Node(
             package='neopixel_ring',
@@ -35,12 +29,6 @@ def generate_launch_description():
             name='controller',
             output='screen',
             prefix='/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3',
-        ),
-        Node(
-            package='locomotion',
-            executable='localization',
-            name='localization',
-            output='screen',
         ),
         Node(
             package='uart',

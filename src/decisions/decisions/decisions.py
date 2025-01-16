@@ -6,6 +6,7 @@ from custom_msgs.msg import Inference, CartesianCmd
 
 import numpy as np
 import cv2
+from utils.uart import UART
 
 from yolo_model import YOLOModel
 
@@ -19,8 +20,8 @@ class DecisionsNode(Node):
 
         # Publishers
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.cmd_cartesian_publisher = self.create_publisher(CartesianCmd, '/cmd_cartesian', 10)
 
+        self.uart = UART()
         self.y_axis_alignment_tolerance = 5 # mm
 
         # State
@@ -46,44 +47,6 @@ class DecisionsNode(Node):
         result.keypoints = result.keypoints[result.boxes.conf >= self.confidence_threshold]
         result.boxes = result.boxes[result.boxes.conf >= self.confidence_threshold]
         """
-    
-    def transition_to_state(self, state):
-        if self.state == state:
-            self.get_logger().error(f"State already {state}")
-            return
-
-        self.get_logger().info(f"Transitioning from {self.state} to {state}.")
-
-        if self.state == "idle":
-            if state == "searching":
-                self.state = "searching"
-                self.publish_img_request()
-                self.publish_twist(0.5, 0)
-            if state == "test":
-                self.state = "test"
-        elif self.state == "searching":
-            if state == "idle":
-                self.state = "idle"
-                self.publish_twist(0, 0)
-            elif state == "finding":
-                self.state = "finding"
-                # self.publish_img_request()
-                self.publish_twist(0, 0)
-        elif self.state == "finding":
-            if state == "idle":
-                self.state = "idle"
-            elif state == "waiting":
-                self.state = "waiting"
-        elif self.state == "waiting":
-            if state == "idle":
-                self.state = "idle"
-            elif state == "searching":
-                self.state = "searching"
-                # self.publish_img_request()
-                self.publish_twist(0.5, 0)
-        else:
-            self.get_logger().error(f"Transitioning from {self.state} to {state} is invalid.")
-            return
 
     def cmd_callback(self, msg):
         if msg.data == "start":
@@ -96,10 +59,7 @@ class DecisionsNode(Node):
         elif msg.data == "get_img":
             self.publish_img_request()
         elif msg.data == "test_uart":
-            testMsg = CartesianCmd()
-            testMsg.axis = 1
-            testMsg.position = 100
-            self.cmd_cartesian_publisher.publish(testMsg)
+            self.uart.send_command(1, 100)
         else:
             self.get_logger().error(f"'{msg}' is not a valid command.")
         
@@ -138,11 +98,9 @@ class DecisionsNode(Node):
             self.get_logger().info(f"{best_point.x}, {best_point.y}")
 
             # Once aligned on y axis, send command to the Nucleo
+            # TODO: Update "waiting" logic
             if abs(best_point.x) < self.y_axis_alignment_tolerance:
-                cartesian_msg = CartesianCmd()
-                cartesian_msg.axis = self.y_axis
-                cartesian_msg.position = int(abs(best_point.y))
-                self.cmd_cartesian_publisher.publish(cartesian_msg)
+                self.uart.send_command(1, int(abs(best_point.y)))
                 self.transition_to_state("waiting")
             # If we are not aligned on y axis, move in x
             else:
@@ -176,6 +134,44 @@ class DecisionsNode(Node):
         self.cmd_vel_publisher.publish(msg)
         self.velocities = [linear, angular]
         self.get_logger().info(f"Setting linear: {linear}, angular: {angular}")
+
+    def transition_to_state(self, state):
+        if self.state == state:
+            self.get_logger().error(f"State already {state}")
+            return
+
+        self.get_logger().info(f"Transitioning from {self.state} to {state}.")
+
+        if self.state == "idle":
+            if state == "searching":
+                self.state = "searching"
+                self.publish_img_request()
+                self.publish_twist(0.5, 0)
+            if state == "test":
+                self.state = "test"
+        elif self.state == "searching":
+            if state == "idle":
+                self.state = "idle"
+                self.publish_twist(0, 0)
+            elif state == "finding":
+                self.state = "finding"
+                # self.publish_img_request()
+                self.publish_twist(0, 0)
+        elif self.state == "finding":
+            if state == "idle":
+                self.state = "idle"
+            elif state == "waiting":
+                self.state = "waiting"
+        elif self.state == "waiting":
+            if state == "idle":
+                self.state = "idle"
+            elif state == "searching":
+                self.state = "searching"
+                # self.publish_img_request()
+                self.publish_twist(0.5, 0)
+        else:
+            self.get_logger().error(f"Transitioning from {self.state} to {state} is invalid.")
+            return
 
     def destroy_node(self):
         super().destroy_node()
