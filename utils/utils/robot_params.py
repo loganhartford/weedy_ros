@@ -5,6 +5,7 @@ import math
 # Robot physical dimensions
 wheel_radius = 0.127   # meters (5 inches)
 wheel_base = 0.381     # meters (distance between wheels)
+y_axis_max = 450       # mm TODO: update
 
 # Motor specifications
 rated_speed = 24.0855 # rad/s (~230 RPM)

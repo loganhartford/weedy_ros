@@ -46,6 +46,7 @@ class UART:
         return ticks1, ticks2, stamp
     
     def send_command(self, axis, position):
+        position = int(position)
         pos_high = (position >> 8) & 0xFF
         pos_low = position & 0xFF
         checksum = (0x01 + axis + pos_high + pos_low) % 256
