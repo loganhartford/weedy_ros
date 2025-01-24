@@ -1,7 +1,5 @@
-import rclpy
-from rclpy.node import Node
 from nav_msgs.msg import Odometry
-from std_msgs.msg import String
+from rclpy.clock import Clock
 
 import math
 import numpy as np
@@ -11,13 +9,8 @@ from utils.utilities import create_quaternion_from_yaw
 
 from utils.uart import UART
 
-class LocalizationNode(Node):
+class Localization:
     def __init__(self):
-        super().__init__('Localization')
-
-        self.odom_publisher = self.create_publisher(Odometry, '/odom', 10)
-        self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
-
         # Robot parameters
         self.wheel_radius = wheel_radius
         self.wheel_base = wheel_base
@@ -30,23 +23,17 @@ class LocalizationNode(Node):
         self.last_ticks_left = None
         self.last_ticks_right = None
 
-        self.last_time = self.get_clock().now()
+        self.clock = Clock()
+        self.last_time = self.clock.now()
 
         self.uart = UART()
-        self.update_odometry()
 
     def update_odometry(self):
-
-        ticks_left, ticks_right, stamp = self.uart.get_ticks()
-
-        if ticks_left == "e" or ticks_right == "e":
-            return "e"
-
-        if self.last_ticks_left is None and self.last_ticks_right is None:
-            self.last_ticks_left = ticks_left
-            self.last_ticks_right = ticks_right
-            self.last_time = stamp
-            return "e"
+        try:
+            ticks_left, ticks_right, stamp = self.uart.get_ticks()
+        except Exception as e:
+            # self.get_logger().error(f"Error reading ticks: {e}")
+            return None
         
         # Handle tick rollover
         max_ticks = 2**15 - 1
@@ -107,31 +94,10 @@ class LocalizationNode(Node):
         odom_msg.twist.twist.linear.x = linear_velocity
         odom_msg.twist.twist.angular.z = angular_velocity
 
-        self.odom_publisher.publish(odom_msg)
+        
         return odom_msg
     
-    def cmd_callback(self, msg):
-        if msg.data == "reset_odom":
-            self.x = 0.0  # m
-            self.y = 0.0  # m
-            self.theta = 0.0  # rad
-
-    def destroy_node(self):
-        super().destroy_node()
-
-    
-
-
-def main(args=None):
-    rclpy.init(args=args)
-    node = LocalizationNode()
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-
-
-if __name__ == '__main__':
-    main()
+    def reset_odometry(self):
+        self.x = 0.0  # m
+        self.y = 0.0  # m
+        self.theta = 0.0  # rad

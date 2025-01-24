@@ -6,7 +6,7 @@ from rclpy.time import Time
 from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import String
 from locomotion.motor_control import MotorController
-from locomotion.localization import LocalizationNode
+from locomotion.localization import Localization
 
 import locomotion.plot
 from locomotion.pid import PID_ctrl
@@ -22,8 +22,10 @@ class ControllerNode(Node):
         super().__init__('controller')
         self.cmd_vel_subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.cmd_pose_subscription = self.create_subscription(PoseStamped, '/cmd_pose', self.cmd_pose_callback, 10)
+        self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
 
         self.cmd_publisher = self.create_publisher(String, '/cmd', 10)
+        self.odom_publisher = self.create_publisher(PoseStamped, '/odom', 10)
         
         self.goal_pose = PoseStamped()
         self.velocity_target = Twist()
@@ -32,7 +34,7 @@ class ControllerNode(Node):
         self.alpha = 0.1  # TODO: tune for how agressively the robot should stop
 
         self.motor_controller = MotorController()
-        self.localization_node = LocalizationNode()
+        self.localization = Localization()
 
         self.linear_pid=PID_ctrl(klp, kld, kli, log_file="outputs/lin_pid_log.csv")
         self.angular_pid=PID_ctrl(kap, kad, kai, log_file="outputs/ang_pid_log.csv")
@@ -44,8 +46,7 @@ class ControllerNode(Node):
             self.log_file = log_file
             self.setup_logger()
         
-        self.logger = self.get_logger()
-        self.logger.info("Controller Init Complete")
+        self.get_logger().info("Controller Init Complete")
     
     def cmd_vel_callback(self, msg):
         self.velocity_target = msg
@@ -57,13 +58,18 @@ class ControllerNode(Node):
             self.reset_control()
 
     def control_loop(self):
-        current_odom = self.localization_node.update_odometry()
+        odom_msg = self.localization.update_odometry()
+        if odom_msg is None:
+            return
+        
         if LOG:
-            self.log_pose(current_odom)
+            self.log_pose(odom_msg)
+        
+        self.odom_publisher.publish(odom_msg)
 
         # We have a pose target
         if self.goal_pose.pose.position.x != 0 or self.goal_pose.pose.position.y != 0 or self.goal_pose.pose.orientation.z != 0:
-            linear_error, angular_error = calculate_pos_error(current_odom.pose.pose, self.goal_pose.pose)
+            linear_error, angular_error = calculate_pos_error(odom_msg.pose.pose, self.goal_pose.pose)
 
             # Check if we reached the goal
             if linear_error < self.linear_error_tolerance:
@@ -72,7 +78,7 @@ class ControllerNode(Node):
                 self.cmd_publisher.publish(String(data="goal_reached"))
                 return
         
-            stamp = current_odom.header.stamp
+            stamp = odom_msg.header.stamp
             linear_vel = self.linear_pid.update([linear_error, stamp])
             angular_vel = self.angular_pid.update([angular_error, stamp])
 
@@ -121,19 +127,25 @@ class ControllerNode(Node):
         with open(self.log_file, "w") as file:
             file.write("Timestamp,X,Y,Z,Orientation_Z,Orientation_W\n") 
 
-    def log_pose(self, current_odom):
-        pose = current_odom.pose.pose
+    def log_pose(self, odom_msg):
+        pose = odom_msg.pose.pose
         position = pose.position
         orientation = pose.orientation
-        timestamp = Time.from_msg(current_odom.header.stamp).nanoseconds / 1e9
+        timestamp = Time.from_msg(odom_msg.header.stamp).nanoseconds / 1e9
 
         # Write to CSV
         with open(self.log_file, "a") as file:
             file.write(f"{timestamp},{position.x},{position.y},{position.z},{orientation.z},{orientation.w}\n")
 
+    def cmd_callback(self, msg):
+        if msg.data == "reset_odom":
+            self.x = 0.0  # m
+            self.y = 0.0  # m
+            self.theta = 0.0  # rad
+
     def destroy_node(self):
         self.motor_controller.stop()
-        self.localization_node.destroy_node()
+        self.localization.destroy_node()
         # plot.main()
         super().destroy_node()
 

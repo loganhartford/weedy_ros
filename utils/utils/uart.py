@@ -7,8 +7,9 @@ from utils.exceptions import UARTError
 
 class UART:
     def __init__(self):
-         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
-         self.clock = Clock()
+        self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
+        self.clock = Clock()
+        self.ticks_timeout = 0.01  # Timeout for waiting for ticks reply in seconds
 
     def get_ticks(self):
         if self.ser.in_waiting:
@@ -18,7 +19,10 @@ class UART:
         self.ser.write(byte_to_send)  # Write the byte to the serial port
 
         buffer = bytearray()
+        start_time = time.time()
         while len(buffer) < 6:  # Expecting 6 bytes: start byte, 2 bytes per tick, and checksum
+            if (time.time() - start_time) > self.ticks_timeout:
+                raise UARTError("Timeout waiting for ticks reply.")
             data = self.ser.read(self.ser.in_waiting or 1)
             if data:
                 buffer.extend(data)
