@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             f'decisions = {package_name}.decisions:main',
+            f'teleop = {package_name}.teleop:main',
         ],
     },
 )

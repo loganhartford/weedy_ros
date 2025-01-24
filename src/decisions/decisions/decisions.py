@@ -12,7 +12,7 @@ import time
 from utils.uart import UART
 from utils.neopixel_ring import NeoPixelRing
 from decisions.yolo_model import YOLOModel
-from util.robot_params import y_axis_max
+from utils.robot_params import y_axis_max
 
 class State(Enum):
     IDLE = auto()
