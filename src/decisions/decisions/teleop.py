@@ -1,93 +1,89 @@
+import pygame
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
+import time
 
-from evdev import InputDevice, ecodes
-import evdev
-import requests
+# Fix for headless environments (SSH, no GUI)
+import os
+os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 class TeleopNode(Node):
     def __init__(self):
         super().__init__('teleop_node')
 
-        # Automatically detect the controller
-        self.controller = self.find_controller()
-        if not self.controller:
-            self.get_logger().error("Controller not found.")
+        # Initialize pygame
+        pygame.init()
+
+        # Detect joystick
+        if pygame.joystick.get_count() == 0:
+            self.get_logger().error("No joystick detected. Ensure it's connected.")
             exit(1)
 
+        self.joystick = pygame.joystick.Joystick(0)
+        self.joystick.init()
+        self.get_logger().info(f"Found joystick: {self.joystick.get_name()}")
+
+        # ROS2 publishers
         self.cmd_publisher = self.create_publisher(String, '/cmd', 10)
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
 
-        # Simple way to control the robot
-        self.linear_speed = -0.3    # m/s
-        self.angular_speed = -0.5   # rad/s
+        # Speed factors
+        self.linear_speed = 0.3    # m/s
+        self.angular_speed = 0.5   # rad/s
+
+        # Joystick state
         self.vert = 0
         self.hor = 0
 
-        # Taking pictures
-        self.image_url = "http://localhost:8000"
+        # Button debounce state
+        self.last_button_press_time = [0] * self.joystick.get_numbuttons()
+        self.debounce_time = 0.3  # 300 ms debounce time
 
-        self.read_inputs()
+        # Main loop
+        self.timer = self.create_timer(0.05, self.read_inputs)  # 20Hz update rate
 
     def read_inputs(self):
-        for event in self.controller.read_loop():
-            twist = Twist()
-            cmd = String()
+        pygame.event.pump()  # Process event queue
 
-            # Joystick movements
-            # TODO: figure out how to control the robot with this
-            if event.type == ecodes.EV_ABS:
-                if event.code == 0:  # Left Stick X-axis (Turning)
-                    pass
-                elif event.code == 1:  # Left Stick Y-axis (Forward/Backward)
-                    pass
-                elif event.code == 17: # Up/down
-                    self.vert = event.value
-                elif event.code == 16: # Left/Right
-                    self.hor = event.value
-                
-                twist.linear.x = self.vert * self.linear_speed
-                twist.angular.z = self.hor * self.angular_speed
+        twist = Twist()
+        cmd = String()
 
-                self.cmd_vel_publisher.publish(twist)
-            
-            # Buton presses
-            elif event.type == ecodes.EV_KEY and event.value == 1:
-                if event.code == 304:  # A Button
-                    print('A Button pressed')
-                elif event.code == 305:  # B Button
-                    print('B Button pressed')
-                elif event.code == 307:  # X Button - Capture Image
-                    cmd.data = "get_img"
-                    self.get_logger().info("Capturing image.")
-                elif event.code == 308:  # Y Button - Emergency Stop
-                    twist.linear.x = 0.0
-                    twist.angular.z = 0.0
-                    cmd.data = "stop"
-                    self.get_logger().error('Emergency STOP!')
-                    self.cmd_publisher.publish(cmd)
-                    self.cmd_vel_publisher.publish(twist)
-            
-            
-    
-    def find_controller(self):
-        for device_path in evdev.list_devices():
-            device = evdev.InputDevice(device_path)
-            if "8BitDo Ultimate 2C Wireless Controller" in device.name:
-                self.get_logger().info(f"Found controller: {device.name} at {device.path}")
-                return device
-        return None
+        # Left joystick controls movement
+        self.hor = self.joystick.get_axis(0)  # X-axis (turning)
+        self.vert = -self.joystick.get_axis(1)  # Y-axis (forward/backward, inverted)
 
+        twist.linear.x = self.vert * self.linear_speed
+        twist.angular.z = self.hor * self.angular_speed
+        self.cmd_vel_publisher.publish(twist)
+
+        current_time = time.time()
+
+        # Button presses with debounce
+        if self.joystick.get_button(0) and current_time - self.last_button_press_time[0] > self.debounce_time:  # A Button
+            self.last_button_press_time[0] = current_time
+            self.get_logger().info('A Button pressed')
+        elif self.joystick.get_button(1) and current_time - self.last_button_press_time[1] > self.debounce_time:  # B Button
+            self.last_button_press_time[1] = current_time
+            self.get_logger().info('B Button pressed')
+        elif self.joystick.get_button(2) and current_time - self.last_button_press_time[2] > self.debounce_time:  # X Button - Capture Image
+            self.last_button_press_time[2] = current_time
+            cmd.data = "get_img"
+            self.get_logger().info("Capturing image.")
+            self.cmd_publisher.publish(cmd)
+        elif self.joystick.get_button(3) and current_time - self.last_button_press_time[3] > self.debounce_time:  # Y Button - Emergency Stop
+            self.last_button_press_time[3] = current_time
+            twist.linear.x = 0.0
+            twist.angular.z = 0.0
+            cmd.data = "stop"
+            self.get_logger().error('Emergency STOP!')
+            self.cmd_publisher.publish(cmd)
+            self.cmd_vel_publisher.publish(twist)
 
 def main(args=None):
     rclpy.init(args=args)
-    try:
-        node = TeleopNode()
-    except FileNotFoundError:
-        print("Controller not found. Check the path.")
-        return
+    node = TeleopNode()
     
     try:
         rclpy.spin(node)
@@ -96,6 +92,7 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
+        pygame.quit()
 
 if __name__ == '__main__':
     main()
