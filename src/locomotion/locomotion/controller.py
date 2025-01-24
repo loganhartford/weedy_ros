@@ -58,7 +58,12 @@ class ControllerNode(Node):
             self.reset_control()
 
     def control_loop(self):
-        odom_msg = self.localization.update_odometry()
+        try:
+            odom_msg = self.localization.update_odometry()
+        except Exception as e:
+            self.get_logger().error(f"Error updating odometry: {e}")
+            return
+        
         if odom_msg is None:
             return
         
@@ -145,7 +150,6 @@ class ControllerNode(Node):
 
     def destroy_node(self):
         self.motor_controller.stop()
-        self.localization.destroy_node()
         # plot.main()
         super().destroy_node()
 

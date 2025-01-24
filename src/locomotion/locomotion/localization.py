@@ -31,8 +31,7 @@ class Localization:
         try:
             ticks_left, ticks_right, stamp = self.uart.get_ticks()
         except Exception as e:
-            self.get_logger().error(f"Error reading ticks: {e}")
-            return None
+            raise e
         
         # Handle tick rollover
         max_ticks = 2**15 - 1
