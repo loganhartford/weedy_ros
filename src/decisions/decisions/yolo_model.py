@@ -16,7 +16,7 @@ class YOLOModel:
         self.model = YOLO(self.model_path, task="pose", verbose=False)
 
         # Camera server
-        self.image_url = "http://10.0.0.171:8000"
+        self.image_url = "http://localhost:8000"
         self.image = None
 
     def run_inference(self, save=False):
