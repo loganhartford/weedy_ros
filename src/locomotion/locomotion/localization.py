@@ -2,7 +2,6 @@ from nav_msgs.msg import Odometry
 from rclpy.clock import Clock
 
 import math
-import numpy as np
 
 from utils.robot_params import wheel_radius, wheel_base, ticks_per_revolution
 from utils.utilities import create_quaternion_from_yaw
@@ -32,7 +31,7 @@ class Localization:
         try:
             ticks_left, ticks_right, stamp = self.uart.get_ticks()
         except Exception as e:
-            # self.get_logger().error(f"Error reading ticks: {e}")
+            self.get_logger().error(f"Error reading ticks: {e}")
             return None
         
         # Handle tick rollover
