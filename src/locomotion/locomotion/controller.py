@@ -31,7 +31,7 @@ class ControllerNode(Node):
         self.velocity_target = Twist()
         self.last_linear_velocity = 0.0
         self.last_angular_velocity = 0.0
-        self.alpha = 0.1  # TODO: tune for how agressively the robot should stop
+        self.alpha = 0.5  # TODO: tune for how agressively the robot should stop
 
         self.motor_controller = MotorController()
         self.localization = Localization()

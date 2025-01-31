@@ -8,6 +8,8 @@ import os
 # Fix for headless environments (SSH, no GUI)
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
+from utils.robot_params import max_linear_speed, max_angular_speed
+
 class TeleopNode(Node):
     def __init__(self):
         super().__init__('teleop_node')
@@ -27,8 +29,8 @@ class TeleopNode(Node):
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
 
         # Speed factors
-        self.linear_speed = 0.3    # m/s
-        self.angular_speed = 0.5   # rad/s
+        self.linear_speed = max_linear_speed   # m/s
+        self.angular_speed = max_angular_speed  # rad/s
 
         self.last_linear = 0.0
         self.last_angular = 0.0
