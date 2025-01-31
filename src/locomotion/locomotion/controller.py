@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.time import Time
 from geometry_msgs.msg import Twist, PoseStamped
+from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 from locomotion.motor_control import MotorController
 from locomotion.localization import Localization
@@ -25,7 +26,7 @@ class ControllerNode(Node):
         self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
 
         self.cmd_publisher = self.create_publisher(String, '/cmd', 10)
-        self.odom_publisher = self.create_publisher(PoseStamped, '/odom', 10)
+        self.odom_publisher = self.create_publisher(Odometry, '/odom', 10)
         
         self.goal_pose = PoseStamped()
         self.velocity_target = Twist()

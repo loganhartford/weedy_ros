@@ -33,6 +33,12 @@ class Localization:
         except Exception as e:
             raise e
         
+        if self.last_ticks_left == None and self.last_ticks_right == None:
+            self.last_ticks_left = ticks_left
+            self.last_ticks_right = ticks_right
+            self.last_time = stamp
+            return None
+
         # Handle tick rollover
         max_ticks = 2**15 - 1
         min_ticks = -2**15
