@@ -9,8 +9,8 @@ y_axis_max = 450       # mm TODO: update
 
 # Motor specifications
 rated_speed = 24.0855 # rad/s (~230 RPM)
-# max_linear_speed = 0.8        # m/s (~3 km/h)
-max_linear_speed = 1.2        # m/s (~3 km/h)
+max_linear_speed = 0.8        # m/s (~3 km/h)
+# max_linear_speed = 1.2        # m/s (~3 km/h)
 max_angular_speed = 2.0       # rad
 
 # Encoder specifications

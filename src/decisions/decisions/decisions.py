@@ -64,6 +64,8 @@ class DecisionsNode(Node):
             State.WAITING: [State.IDLE, State.EXPLORING],
         }
 
+        self.led_ring.set_color(255, 255, 255, 0.5)
+
         self.get_logger().info(f"Decisions Init")
 
     def explore(self):

@@ -8,6 +8,7 @@ from PIL import Image as PILImage
 from io import BytesIO
 
 from utils.exceptions import ModelError, CameraError
+from datetime import datetime
 
 class YOLOModel:
     def __init__(self):
@@ -52,7 +53,16 @@ class YOLOModel:
         except requests.exceptions.RequestException as e:
             raise CameraError("Error fetching image from camera") from e
     
-    def capture_and_save_image(self, filename="captured_image.jpg"):
-        img = self.get_img()
+    def capture_and_save_image(self):
+        try:
+            response = requests.get(self.image_url)
+            response.raise_for_status()
 
-        cv2.imwrite(filename, img)
+            image = PILImage.open(BytesIO(response.content))
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename_with_timestamp = f"/mnt/shared/weedy_ros/src/decisions/decisions/img/{timestamp}.jpg"
+            
+            image.save(filename_with_timestamp)
+            
+        except requests.exceptions.RequestException as e:
+            raise CameraError("Error fetching image from camera") from e
