@@ -41,22 +41,9 @@ class YOLOModel:
         except Exception as e:
             raise ModelError("Error during model inference") from e
     
-    def get_still_img(self):
+    def get_img(self):
         try:
-            response = requests.get(f"{self.image_url}/still")
-            response.raise_for_status()
-
-            image = PILImage.open(BytesIO(response.content))
-            image_np = np.array(image)[:, :, ::-1]
-
-            return image_np
-        
-        except requests.exceptions.RequestException as e:
-            raise CameraError("Error fetching image from camera") from e
-
-    def get_motion_img(self):
-        try:
-            response = requests.get(f"{self.image_url}/motion")
+            response = requests.get(self.image_url)
             response.raise_for_status()
 
             image = PILImage.open(BytesIO(response.content))
@@ -67,11 +54,9 @@ class YOLOModel:
         except requests.exceptions.RequestException as e:
             raise CameraError("Error fetching image from camera") from e
     
-    
-    
-    def capture_and_save_image(self, type="still"):
+    def capture_and_save_image(self):
         try:
-            response = requests.get(f"{self.image_url}/{type}")
+            response = requests.get(self.image_url)
             response.raise_for_status()
 
             image = PILImage.open(BytesIO(response.content))

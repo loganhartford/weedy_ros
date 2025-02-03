@@ -182,10 +182,8 @@ class DecisionsNode(Node):
 
         if msg.data in command_map:
             self.transition_to_state(command_map[msg.data])
-        elif msg.data == "get_still_img":
-            self.cv.capture_and_save_image(type="still")
-        elif msg.data == "get_motion_img":
-            self.cv.capture_and_save_image(type="motion")
+        elif msg.data == "get_img":
+            self.cv.capture_and_save_image()
         elif msg.data == "test":
             self.get_logger().info(f"{self.get_keypoints(save=True)}")
         else:
