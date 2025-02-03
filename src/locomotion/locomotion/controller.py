@@ -12,7 +12,7 @@ from locomotion.localization import Localization
 import locomotion.plot
 from locomotion.pid import PID_ctrl
 from utils.utilities import calculate_pos_error
-from utils.robot_params import max_linear_speed, max_angular_speed, max_motor_linear_speed, min_motor_linear_speed
+from utils.robot_params import max_linear_speed, max_angular_speed, y_axis_alignment_tolerance
 
 LOG = True
 
@@ -40,7 +40,7 @@ class ControllerNode(Node):
         self.linear_pid=PID_ctrl(klp, kld, kli, log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/lin_pid_log.csv")
         self.angular_pid=PID_ctrl(kap, kad, kai, log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ang_pid_log.csv")
         self.control_timer = self.create_timer(0.01, self.control_loop)
-        self.linear_error_tolerance = 0.01 # 1cm TODO: tune this
+        self.linear_error_tolerance = y_axis_alignment_tolerance
         self.angular_error_tolerance = 0.1 # rad TODO: tune this
 
         if LOG:

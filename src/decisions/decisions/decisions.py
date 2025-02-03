@@ -12,7 +12,7 @@ import time
 from utils.uart import UART
 from utils.neopixel_ring import NeoPixelRing
 from decisions.yolo_model import YOLOModel
-from utils.robot_params import y_axis_max
+from utils.robot_params import y_axis_max, y_axis_alignment_tolerance
 
 class State(Enum):
     IDLE = auto()
@@ -33,8 +33,8 @@ class DecisionsNode(Node):
         self.cmd_pose_publisher = self.create_publisher(PoseStamped, '/cmd_pose', 10)
 
         self.uart = UART()
-        self.y_axis_alignment_tolerance = 5 # mm
-        self.y_axis_max = y_axis_max #mm
+        self.y_axis_alignment_tolerance = y_axis_alignment_tolerance
+        self.y_axis_max = y_axis_max
 
         # State
         self.state = State.IDLE
