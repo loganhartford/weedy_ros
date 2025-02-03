@@ -22,9 +22,9 @@ class MotorController:
         lgpio.gpio_claim_output(self.chip, self.left_motordir)
         lgpio.gpio_claim_output(self.chip, self.right_motordir)
 
-        self.wheel_radius = wheel_radius    # meters -> 5in
-        self.wheel_base = wheel_base        # meters TODO: update this value
-        self.rated_speed = rated_speed      # rad/s -> 230 RPM
+        self.wheel_radius = wheel_radius
+        self.wheel_base = wheel_base
+        self.rated_speed = rated_speed
 
     def set_velocity(self, linear_x, angular_z):
         # Calculate wheel velocities in m/s
