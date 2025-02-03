@@ -27,6 +27,7 @@ class YOLOModel:
             return None
 
         try:
+            # self.img = "/mnt/shared/weedy_ros/src/decisions/decisions/downloaded_image.jpg"
             # Run inference
             results = self.model(self.img, verbose=False)
             result = results[0]

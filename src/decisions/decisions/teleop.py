@@ -67,6 +67,8 @@ class TeleopNode(Node):
                     self.get_logger().info('A Button pressed')
 
                 elif button == 1:  # B Button
+                    cmd.data = "test"
+                    self.cmd_publisher.publish(cmd)
                     self.get_logger().info('B Button pressed')
 
                 elif button == 2:  # X Button - Capture Image

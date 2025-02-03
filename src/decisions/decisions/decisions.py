@@ -73,7 +73,7 @@ class DecisionsNode(Node):
         self.publish_twist(0.3, 0)
 
         while self.state == State.EXPLORING:
-            if self.get_keypoints():
+            if self.get_boxes():
                 self.transition_to_state(State.ALIGNING)
                 
     def align(self):
@@ -121,8 +121,23 @@ class DecisionsNode(Node):
                     self.transition_to_state(State.IDLE)
                 time.sleep(0.1)
 
-    def get_keypoints(self, keypoints):
-        result = self.cv.run_inference()
+    def get_boxes(self, save=False):
+        result = self.cv.run_inference(save=save)
+
+        if result == None:
+            return None
+        
+        # Filter result by box confidence
+        valid_indices = result.boxes.conf >= self.conf_thresh
+        result.boxes = result.boxes[valid_indices]
+
+        if len(result.boxes) == 0:
+            return None
+
+        return result.boxes
+
+    def get_keypoints(self, save=False):
+        result = self.cv.run_inference(save=save)
 
         if result == None:
             return None
@@ -136,22 +151,14 @@ class DecisionsNode(Node):
             return None
 
         kp_list = []
-        for kp in keypoints:
+        for kp in result.keypoints:
             points = list(zip(["flower", "base", "upper", "lower"], kp.data[0]))
             points = sorted(points, key=lambda x: ["base", "lower", "upper", "flower"].index(x[0]))
-            """
-            - Here we could choose to fileter the keypoints by confidence,
-              but we've already filteres by box conf and visibility, so
-              we just take the lowest visible keypoint.
-            - This keypoint is fully valid as far as we are concerned
-            - Filtering keypoints by conf as well may be necessary if 
-              if low conf keypionts are causing issues.
-            """
             # For each result, take the lowest point
             for name, tensor in points:
-                kp_conf = tensor[2]
-                # Keypoint is non-zero and is within the y-axis
-                if tensor[2] != 0.0 and tensor[1] >= 0 and tensor[1] < self.y_axis_max:
+                kp_x, kp_y, kp_conf = tensor
+                # High confidence and is within the y-axis
+                if kp_conf > self.conf_thresh and kp_y >= 0.0 and kp_y < self.y_axis_max:
                     kp_list.append(tensor)
                     break
         if kp_list == []:
@@ -177,6 +184,8 @@ class DecisionsNode(Node):
             self.transition_to_state(command_map[msg.data])
         elif msg.data == "get_img":
             self.cv.capture_and_save_image()
+        elif msg.data == "test":
+            self.get_logger().info(f"{self.get_keypoints(save=True)}")
         else:
             self.get_logger().error(f"'{msg}' is not a valid command.")
     
