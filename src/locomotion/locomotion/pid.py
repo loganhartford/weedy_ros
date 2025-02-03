@@ -1,10 +1,10 @@
 from rclpy.time import Time
 
-LOG = False
+LOG = True
 
 class PID_ctrl:
     
-    def __init__(self, kp, kd, ki, history_length=10, log_file="outputs/pid_log.csv"):
+    def __init__(self, kp, kd, ki, history_length=10, log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/pid_log.csv"):
         # Data for the controller
         self.history_length = history_length
         self.history = []

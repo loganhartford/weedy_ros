@@ -3,8 +3,8 @@
 import math
 
 # Robot physical dimensions
-wheel_radius = 0.127   # m (5 inches) TODO: update
-wheel_base = 0.545     # m TODO: update
+wheel_radius = 0.103   # m (5 inches) TODO: update
+wheel_base = 0.536     # m TODO: update
 y_axis_max = 450       # mm TODO: update
 
 # Motor specifications
@@ -17,6 +17,6 @@ max_angular_speed = 0.3  # rad
 ticks_per_revolution = 3264  # Encoder ticks per wheel revolution
 
 # Motor
-min_duty_cycle = 4
+min_duty_cycle = 8
 max_motor_linear_speed = 2*math.pi*wheel_radius*230/60 - 0.5 # 0.5 safety factor
 min_motor_linear_speed = 2*math.pi*wheel_radius*3/100*230/60

@@ -104,12 +104,12 @@ class DecisionsNode(Node):
                 continue
 
             # Add the displacement from the y-axis
-            pose_msg = self.pose
-            pose_msg.pose_msg.pose.pose.position.x += best_point[0] / 1000 # convert to m
+            odom_msg = self.odom
+            odom_msg.pose.pose.position.x += best_point[0] / 1000 # convert to m
 
             # Move the robot
             self.transition_to_state(State.WAITING)
-            self.cmd_pose_publisher.publish(pose_msg)
+            self.cmd_pose_publisher.publish(odom_msg)
 
             # Wait for the move to finish (update in cmd_callback)
             start_time = time.time()
@@ -181,16 +181,20 @@ class DecisionsNode(Node):
         }
 
         if msg.data in command_map:
+            if msg.data == "goal_reached" and self.state != State.ALIGNING:
+                return
             self.transition_to_state(command_map[msg.data])
         elif msg.data == "get_img":
             self.cv.capture_and_save_image()
+        elif msg.data == "print_odom":
+            self.get_logger().info(f"{self.odom.pose.pose.position.x}")
         elif msg.data == "test":
             self.get_logger().info(f"{self.get_keypoints(save=True)}")
         else:
             self.get_logger().error(f"'{msg}' is not a valid command.")
     
     def odom_callback(self, msg):
-        self.pose = msg
+        self.odom = msg
     
     def publish_twist(self, linear, angular):
         msg = Twist()

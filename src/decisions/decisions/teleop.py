@@ -64,7 +64,9 @@ class TeleopNode(Node):
                 button = event.button
 
                 if button == 0:  # A Button
-                    self.get_logger().info('A Button pressed')
+                    cmd.data = "print_odom"
+                    self.cmd_publisher.publish(cmd)
+                    self.get_logger().info('Print odom.')
 
                 elif button == 1:  # B Button
                     cmd.data = "test"

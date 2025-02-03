@@ -5,7 +5,6 @@ import math
 
 from utils.robot_params import wheel_radius, wheel_base, ticks_per_revolution
 from utils.utilities import create_quaternion_from_yaw
-
 from utils.uart import UART
 
 class Localization:
@@ -32,8 +31,8 @@ class Localization:
             ticks_left, ticks_right, stamp = self.uart.get_ticks()
         except Exception as e:
             raise e
-        
-        if self.last_ticks_left == None and self.last_ticks_right == None:
+
+        if self.last_ticks_left is None and self.last_ticks_right is None:
             self.last_ticks_left = ticks_left
             self.last_ticks_right = ticks_right
             self.last_time = stamp
@@ -56,15 +55,21 @@ class Localization:
         elif delta_ticks_right < min_ticks / 2:
             delta_ticks_right += (max_ticks - min_ticks + 1)
 
+        # Update stored ticks for next iteration
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
-        
+
+        # Calculate elapsed time
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9
         self.last_time = stamp
 
+        # Invert left encoder delta because it counts down when moving forward.
+        effective_delta_ticks_left = -delta_ticks_left
+        effective_delta_ticks_right = delta_ticks_right
+
         # Compute wheel displacements
-        d_left = (delta_ticks_left / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
-        d_right = (delta_ticks_right / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
+        d_left = (effective_delta_ticks_left / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
+        d_right = (effective_delta_ticks_right / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
 
         # Compute linear and angular displacements
         d = (d_left + d_right) / 2.0
@@ -92,15 +97,15 @@ class Localization:
         odom_msg.pose.pose.position.x = self.x
         odom_msg.pose.pose.position.y = self.y
         # odom_msg.pose.pose.orientation = create_quaternion_from_yaw(self.theta)
+        # For now, we're storing the yaw in the z field (not standard, but for debugging)
         odom_msg.pose.pose.orientation.z = self.theta
 
         # Twist
         odom_msg.twist.twist.linear.x = linear_velocity
         odom_msg.twist.twist.angular.z = angular_velocity
 
-        
         return odom_msg
-    
+
     def reset_odometry(self):
         self.x = 0.0  # m
         self.y = 0.0  # m
