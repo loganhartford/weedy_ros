@@ -72,7 +72,10 @@ class TeleopNode(Node):
                     self.get_logger().info('B Button pressed')
 
                 elif button == 2:  # X Button - Capture Image
-                    cmd.data = "get_img"
+                    if self.last_linear != 0.0 or self.last_angular != 0.0:
+                        cmd.data = "get_motion_img"
+                    else:
+                        cmd.data = "get_still_img"
                     self.get_logger().info("Capturing image.")
                     self.cmd_publisher.publish(cmd)
 
