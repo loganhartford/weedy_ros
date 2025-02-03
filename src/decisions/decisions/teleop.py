@@ -37,21 +37,20 @@ class TeleopNode(Node):
 
     def run(self):
         while rclpy.ok():
-            # Wait up to 100ms for an event, otherwise timeout
-            event = pygame.event.wait(timeout=100)
+            pygame.event.pump()
+            events = pygame.event.get()
 
-            if event:
+            for event in events:
                 twist = Twist()
                 cmd = String()
 
                 if event.type == pygame.JOYAXISMOTION:
-                    
                     # Left joystick: Axis 0 (X for turning), Axis 1 (Y for forward/backward)
                     linear_x = -self.joystick.get_axis(1) * self.linear_speed
                     angular_z = self.joystick.get_axis(0) * self.angular_speed
 
-                    # Only publish if values change
-                    if linear_x != self.last_linear or angular_z != self.last_angular:
+                    # Dead zone check to reduce redundant messages
+                    if abs(linear_x - self.last_linear) > 0.01 or abs(angular_z - self.last_angular) > 0.01:
                         twist.linear.x = linear_x
                         twist.angular.z = angular_z
                         self.cmd_vel_publisher.publish(twist)
@@ -79,9 +78,10 @@ class TeleopNode(Node):
                         self.get_logger().error('Emergency STOP!')
                         self.cmd_publisher.publish(cmd)
                         self.cmd_vel_publisher.publish(twist)
-
+            
             # Allow ROS2 to check for shutdown signals
-            rclpy.spin_once(self, timeout_sec=0.1)  
+            rclpy.spin_once(self, timeout_sec=0.1)
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -94,6 +94,7 @@ def main(args=None):
     finally:
         node.destroy_node()
         pygame.quit()
+
 
 if __name__ == '__main__':
     main()
