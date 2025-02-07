@@ -7,19 +7,13 @@ import time
 import numpy as np
 import csv
 
-url = "http://10.0.0.171:8000"
-neo = Pi5Neo('/dev/spidev0.0', 16, 800)
-a = 1.0
 
-actual_base = (368, 365)
-test_name = "test2"
 
 models = {
-    "indoor_pose": "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_pose_ncnn_model",
-    "indoor_bright": "/mnt/shared/weedy_ros/src/inference/inference/models/indoor_bright_ncnn_model",
-    "all_partial": "/mnt/shared/weedy_ros/src/inference/inference/models/all_partial_ncnn_model",
-    "outdoor_partial": "/mnt/shared/weedy_ros/src/inference/inference/models/outdoor_partial_ncnn_model",
-    "outdoor_then_indoor": "/mnt/shared/weedy_ros/src/inference/inference/models/outdoor_then_indoor_ncnn_model",
+    "indoor_pose": "/mnt/shared/weedy_ros/src/decisions/decisions/models/indoor_pose_ncnn_model",
+    "indoor_angled": "/mnt/shared/weedy_ros/src/decisions/decisions/models/indoor_angled_ncnn_model",
+    "indoor_all": "/mnt/shared/weedy_ros/src/decisions/decisions/models/indoor_all_ncnn_model",
+    "indoor_indoor": "/mnt/shared/weedy_ros/src/decisions/decisions/models/indoor_indoor_ncnn_model",
 }
 
 def get_image():
@@ -29,7 +23,7 @@ def get_image():
 
         image = Image.open(BytesIO(response.content))
 
-        image_path = f"/mnt/shared/weedy_ros/src/inference/inference/eval/{test_name}/downloaded_image.jpg"
+        image_path = f"/mnt/shared/weedy_ros/src/decisions/decisions/test_scripts/eval/{test_name}/downloaded_image.jpg"
         image.save(image_path)
 
         return image_path
@@ -39,6 +33,14 @@ def get_image():
 
 def euclidean_distance(point1, point2):
     return np.linalg.norm(np.array(point1) - np.array(point2))
+
+
+url = "http://localhost:8000"
+neo = Pi5Neo('/dev/spidev0.0', 16, 800)
+a = 0.5
+
+actual_base = (368, 365)
+test_name = "set2/test1"
 
 def main():
     print()
@@ -78,7 +80,7 @@ def main():
                 # result.boxes = result.boxes[result.boxes.conf >= confidence_threshold]
 
                 # Save image
-                result.save(f"/mnt/shared/weedy_ros/src/inference/inference/eval/{test_name}/{model_name}_{iter}.jpg")
+                result.save(f"/mnt/shared/weedy_ros/src/decisions/decisions/test_scripts/eval/{test_name}/{model_name}_{iter}.jpg")
 
                 # Calculate distances and confidences
                 best_distance = 1080
@@ -93,7 +95,7 @@ def main():
                         if all(tensor.numpy() != 0):
                             distance = euclidean_distance(actual_base, (tensor[0], tensor[1]))
                             confidence = tensor[2]
-                            if best_confidence < confidence:
+                            if confidence > best_confidence:
                                 best_distance = distance
                                 best_confidence = confidence
                             break
@@ -112,7 +114,7 @@ def main():
         results_data[model_name] = [average_distance, average_confidence]
 
     # Save data to CSV
-    csv_path = f"/mnt/shared/weedy_ros/src/inference/inference/eval/{test_name}/results.csv"
+    csv_path = f"/mnt/shared/weedy_ros/src/decisions/decisions/test_scripts/eval/{test_name}/results.csv"
     with open(csv_path, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Model Name", "Average Euclidean Distance", "Average Confidence"])
@@ -125,7 +127,6 @@ def cleanup():
     neo.update_strip()
 
 if __name__ == "__main__":
-    model = YOLO("/mnt/shared/weedy_ros/src/inference/inference/models/all_partial_ncnn_model", task="pose", verbose=False)
 
     main()
     cleanup()
