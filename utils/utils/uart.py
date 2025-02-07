@@ -15,8 +15,8 @@ class UART:
         if self.ser.in_waiting:
             self.ser.reset_input_buffer()
         
-        byte_to_send = bytes([0xAE])  # Create a single-byte bytes object
-        self.ser.write(byte_to_send)  # Write the byte to the serial port
+        byte_to_send = bytes([0xAE])
+        self.ser.write(byte_to_send)
 
         buffer = bytearray()
         start_time = time.time()
@@ -48,6 +48,39 @@ class UART:
             ticks2 -= (1 << 16)
 
         return ticks1, ticks2, stamp
+
+    def get_battery_voltage(self):
+        if self.ser.in_waiting:
+            self.ser.reset_input_buffer()
+        
+        byte_to_send = bytes([0x11])
+        self.ser.write(byte_to_send)
+
+        buffer = bytearray()
+        start_time = time.time()
+        while len(buffer) < 4:  # Expecting 4 bytes: start byte, 3 bytes of data, and checksum
+            if (time.time() - start_time) > 0.1:
+                raise UARTError("Timeout waiting for battery reply.")
+            data = self.ser.read(self.ser.in_waiting or 1)
+            if data:
+                buffer.extend(data)
+        
+        # Validate start byte
+        if buffer[0] != 0x11:
+            raise UARTError("Invalid start byte.")
+        
+        # Validate the checksum
+        checksum = sum(buffer[:-1]) % 256
+        if checksum != buffer[-1]:
+            raise UARTError("Invalid tick checksum.")
+        
+        int_part = buffer[1]
+        decimal_part = buffer[2]
+        voltage = int_part + (decimal_part / 100)
+
+        return voltage
+
+
     
     def send_command(self, axis, position):
         position = int(position)

@@ -5,6 +5,8 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 
+from utils.uart import UART
+
 # Fix for headless environments (SSH, no GUI)
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
@@ -39,6 +41,8 @@ class TeleopNode(Node):
         
         self.timer = self.create_timer(0.1, self.timer_callback)
 
+        self.uart = UART()
+
     def timer_callback(self):
         pygame.event.pump() # Process pygame events
         events = pygame.event.get() # Get all events since last call
@@ -69,9 +73,11 @@ class TeleopNode(Node):
                     self.get_logger().info('Print odom.')
 
                 elif button == 1:  # B Button
-                    cmd.data = "test"
-                    self.cmd_publisher.publish(cmd)
-                    self.get_logger().info('B Button pressed')
+                    try:
+                        voltage = self.uart.get_battery_voltage()
+                        self.get_logger().info(f"Battery voltage: {voltage} V")
+                    except Exception as e:
+                        self.get_logger().error(f"Error getting battery voltage: {e}")
 
                 elif button == 2:  # X Button - Capture Image
                     
