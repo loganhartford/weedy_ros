@@ -3,11 +3,12 @@
 from rpi_hardware_pwm import HardwarePWM
 import lgpio
 
-from utils.robot_params import wheel_radius, wheel_base, rated_speed, min_duty_cycle
+from utils.robot_params import wheel_radius, wheel_base, rated_speed, min_duty_cycle, motor_comp_factor
 
 # TODO: validate on robot
 FORWARD = 0
 BACKWARD = 1
+LOG = True
 
 class MotorController:
     def __init__(self):
@@ -25,6 +26,12 @@ class MotorController:
         self.wheel_radius = wheel_radius
         self.wheel_base = wheel_base
         self.rated_speed = rated_speed
+
+        # log duty cycles to a csv
+        if LOG:
+            self.log_file = "/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/duty_log.csv"
+            with open(self.log_file, "w") as file:
+                file.write("duty_left,duty_right\n") 
 
     def set_velocity(self, linear_x, angular_z):
         # Calculate wheel velocities in m/s
@@ -50,8 +57,12 @@ class MotorController:
         if right_duty_cycle > 0:
             right_duty_cycle = max(right_duty_cycle, min_duty_cycle)
 
+        if LOG:
+            with open(self.log_file, "a") as file:
+                file.write(f"{left_duty_cycle},{right_duty_cycle}\n")
+
         self.left_motor.change_duty_cycle(left_duty_cycle)
-        self.right_motor.change_duty_cycle(right_duty_cycle)
+        self.right_motor.change_duty_cycle(right_duty_cycle*motor_comp_factor)
 
     def stop(self):
         self.left_motor.stop()

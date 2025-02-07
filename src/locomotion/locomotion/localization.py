@@ -3,7 +3,7 @@ from rclpy.clock import Clock
 
 import math
 
-from utils.robot_params import wheel_radius, wheel_base, ticks_per_revolution
+from utils.robot_params import wheel_radius, wheel_base, ticks_per_revolution, log
 from utils.utilities import create_quaternion_from_yaw
 from utils.uart import UART
 
@@ -25,6 +25,11 @@ class Localization:
         self.last_time = self.clock.now()
 
         self.uart = UART()
+
+        if log:
+            self.log_file = "/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ticks_log.csv"
+            with open(self.log_file, "w") as file:
+                file.write("ticks_left,ticks_right\n") 
 
     def update_odometry(self):
         try:
@@ -58,6 +63,10 @@ class Localization:
         # Update stored ticks for next iteration
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
+
+        if log:
+            with open(self.log_file, "a") as file:
+                file.write(f"{ticks_left},{ticks_right}\n")
 
         # Calculate elapsed time
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9

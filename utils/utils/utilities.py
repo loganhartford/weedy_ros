@@ -28,6 +28,9 @@ def calculate_pos_error(current_pose, goal_pose):
     angular_error = normalize_angle(angular_error)
 
     linear_error = sqrt((goal_y - current_y) ** 2 + (goal_x - current_x) ** 2)
+
+    if current_x > goal_x:
+        linear_error = -linear_error
     
     return linear_error, angular_error
 
