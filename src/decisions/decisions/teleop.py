@@ -97,7 +97,7 @@ class TeleopNode(Node):
                     pass
                 elif button == 5: # Move
                     try:
-                        self.uart.send_command(1, 10)
+                        self.uart.send_command(1, 245)
                     except Exception as e:
                         self.get_logger().error(f"Error sending command: {e}")
 
