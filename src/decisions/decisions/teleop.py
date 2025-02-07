@@ -92,6 +92,15 @@ class TeleopNode(Node):
                     self.get_logger().error('Emergency STOP!')
                     self.cmd_publisher.publish(cmd)
                     self.cmd_vel_publisher.publish(twist)
+                
+                elif button == 4:  # Left Bumper
+                    pass
+                elif button == 5: # Move
+                    # self.uart.send_command(1, 20)
+                    try:
+                        self.uart.send_command(1, 245)
+                    except Exception as e:
+                        self.get_logger().error(f"Error sending command: {e}")
 
 def main(args=None):
     rclpy.init(args=args)

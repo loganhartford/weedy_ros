@@ -9,7 +9,8 @@ class UART:
     def __init__(self):
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
         self.clock = Clock()
-        self.ticks_timeout = 0.01  # Timeout for waiting for ticks reply in seconds
+        self.ticks_timeout = 0.01 # s
+        self.ack_timeout = 0.1  # s
 
     def get_ticks(self):
         if self.ser.in_waiting:
@@ -59,7 +60,7 @@ class UART:
         buffer = bytearray()
         start_time = time.time()
         while len(buffer) < 4:  # Expecting 4 bytes: start byte, 3 bytes of data, and checksum
-            if (time.time() - start_time) > 0.1:
+            if (time.time() - start_time) > self.ack_timeout:
                 raise UARTError("Timeout waiting for battery reply.")
             data = self.ser.read(self.ser.in_waiting or 1)
             if data:
@@ -89,14 +90,16 @@ class UART:
         checksum = (0x01 + axis + pos_high + pos_low) % 256
         message = bytes([0x01, axis, pos_high, pos_low, checksum])
 
+        self.ser.write(message)
+
         if not self.wait_for_acknowledgment():
             raise UARTError("Timeout waiting for acknowledgment.")
         
-        data_received, resp_axis, resp_position = self.wait_for_data_message()
+        data_received = self.wait_for_data_message()
         if not data_received:
             raise UARTError("Timeout waiting for response.")
         
-        return True
+        return data_received
 
     def wait_for_acknowledgment(self):
         start_time = time.time()
