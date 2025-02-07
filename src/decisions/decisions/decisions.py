@@ -49,10 +49,10 @@ class DecisionsNode(Node):
 
         # Homography
         self.pixel_points = np.array([
-            [265, 443], [258, 874], [1633, 869], [1625, 440]
+            [1543, 999], [1458, 54], [524, 1012], [552, 59]
                                                 ], dtype=np.float32)
         self.ground_points = np.array([
-            [101.4, -48.33], [0, -48.33], [0, 271.67], [101.4, 271.67]
+            [20, 10], [240, 10], [20, 245], [240, 245]
                                                 ], dtype=np.float32)
         self.H, _ = cv2.findHomography(self.pixel_points, self.ground_points)
 

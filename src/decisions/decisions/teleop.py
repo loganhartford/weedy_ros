@@ -96,7 +96,6 @@ class TeleopNode(Node):
                 elif button == 4:  # Left Bumper
                     pass
                 elif button == 5: # Move
-                    # self.uart.send_command(1, 20)
                     try:
                         self.uart.send_command(1, 10)
                     except Exception as e:
