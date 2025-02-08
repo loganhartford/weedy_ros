@@ -95,8 +95,6 @@ def main():
     neo.fill_strip(int(255 * a), int(255 * a), int(255 * a))
     neo.update_strip()
 
-    
-
     # Wait for light to turn on
     time.sleep(3)
 
@@ -107,8 +105,6 @@ def main():
 
     # Run inference
     for iter in range(5):
-        # Get image
-
         image_path = get_image()
 
         for model_name, model in loaded_models.items():
@@ -124,11 +120,6 @@ def main():
                 results_data[model_name]["point"].append(-1)
                 results_data[model_name]["num_boxes"].append(0)
             else:
-                # Filter by box confidence
-                # confidence_threshold = 0.6
-                # result.keypoints = result.keypoints[result.boxes.conf >= confidence_threshold]
-                # result.boxes = result.boxes[result.boxes.conf >= confidence_threshold]
-
                 # Save image
                 result.save(f"/mnt/shared/weedy_ros/src/decisions/decisions/test_scripts/eval/{test_name}/{model_name}_{iter}.jpg")
 
