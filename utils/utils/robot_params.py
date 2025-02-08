@@ -1,6 +1,7 @@
 # robot_params.py
 # Centralized configuration for robot parameters
 import math
+import numpy as np
 
 # Robot physical dimensions
 wheel_radius = 0.115   # m (5 inches) TODO: update
@@ -26,3 +27,40 @@ y_axis_alignment_tolerance = 0.005 # m
 
 # Saves data to csv files
 log = False
+
+# Homography points
+pixel_points = np.array([
+    [1291, 953],
+    [694, 964],
+    [1410, 652],
+    [986, 659],
+    [563, 668],
+    [1385, 242],
+    [977, 251],
+    [571, 258],
+    [982, 451],
+    [991, 876],
+    [1198, 655],
+    [774, 664],
+    [1262, 371],
+    [699, 382],
+], dtype=np.float32)
+
+x = 0
+y = 30
+ground_points = np.array([
+    [x+30, y+30],
+    [x+30, y+160],
+    [x+95, y+0],
+    [x+95, y+95],
+    [x+95, y+190],
+    [x+190, y+0],
+    [x+190, y+95],
+    [x+190, y+190],
+    [x+142.5, y+95],
+    [x+47.5, y+95],
+    [x+95, y+47.5],
+    [x+95, y+142.5],
+    [x+160, y+30],
+    [x+160, y+160],
+], dtype=np.float32)
