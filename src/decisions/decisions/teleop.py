@@ -67,12 +67,11 @@ class TeleopNode(Node):
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = event.button
 
-                if button == 0:  # A Button
-                    cmd.data = "print_odom"
+                if button == 0:  # A Button - Start autonomous mode
+                    cmd.data = "start"
                     self.cmd_publisher.publish(cmd)
-                    self.get_logger().info('Print odom.')
 
-                elif button == 1:  # B Button
+                elif button == 1:  # B Button - Print battery voltage
                     try:
                         voltage = self.uart.get_battery_voltage()
                         self.get_logger().info(f"Battery voltage: {voltage} V")
@@ -80,7 +79,6 @@ class TeleopNode(Node):
                         self.get_logger().error(f"Error getting battery voltage: {e}")
 
                 elif button == 2:  # X Button - Capture Image
-                    
                     cmd.data = "get_img"
                     self.get_logger().info("Capturing image.")
                     self.cmd_publisher.publish(cmd)
@@ -93,11 +91,14 @@ class TeleopNode(Node):
                     self.cmd_publisher.publish(cmd)
                     self.cmd_vel_publisher.publish(twist)
                 
-                elif button == 4:  # Left Bumper
-                    pass
-                elif button == 5: # Move
+                elif button == 4:  # Left Bumper - Print odom
+                    cmd.data = "print_odom"
+                    self.cmd_publisher.publish(cmd)
+                    self.get_logger().info('Print odom.')
+                
+                elif button == 5: # Right Bumper - Send y-axis move command
                     try:
-                        self.uart.send_command(1, 220)
+                        self.uart.send_command(1, 185)
                     except Exception as e:
                         self.get_logger().error(f"Error sending command: {e}")
 

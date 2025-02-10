@@ -13,7 +13,7 @@ from datetime import datetime
 class YOLOModel:
     def __init__(self):
         # YOLO Model
-        self.model_path = "/mnt/shared/weedy_ros/src/decisions/decisions/models/indoor_pose_ncnn_model"
+        self.model_path = "/mnt/shared/weedy_ros/src/decisions/decisions/models/indoor_all_ncnn_model"
         self.model = YOLO(self.model_path, task="pose", verbose=False)
 
         # Camera server

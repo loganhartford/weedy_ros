@@ -12,7 +12,7 @@ from locomotion.localization import Localization
 import locomotion.plot
 from locomotion.pid import PID_ctrl
 from utils.utilities import calculate_pos_error
-from utils.robot_params import max_linear_speed, max_angular_speed, y_axis_alignment_tolerance, log
+from utils.robot_params import max_linear_speed, max_angular_speed, pid_linear_error_tolerance, log
 
 class ControllerNode(Node):
     # TODO: Tune angluar with second motor
@@ -20,13 +20,13 @@ class ControllerNode(Node):
     def __init__(self, klp=5.0, kld=0.0, kli=2.0, kap=1.2, kad=0.0, kai=1.0,log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/pose_log.csv"):
         super().__init__('controller')
         self.cmd_vel_subscription = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
-        self.cmd_pose_subscription = self.create_subscription(PoseStamped, '/cmd_pose', self.cmd_pose_callback, 10)
+        self.cmd_odom_subscription = self.create_subscription(Odometry, '/cmd_odom', self.cmd_odom_callback, 10)
         self.cmd_subscription = self.create_subscription(String, '/cmd', self.cmd_callback, 10)
 
         self.cmd_publisher = self.create_publisher(String, '/cmd', 10)
         self.odom_publisher = self.create_publisher(Odometry, '/odom', 10)
         
-        self.goal_pose = PoseStamped()
+        self.goal_odom = Odometry()
         self.velocity_target = Twist()
         self.last_linear_velocity = 0.0
         self.last_angular_velocity = 0.0
@@ -38,7 +38,7 @@ class ControllerNode(Node):
         self.linear_pid=PID_ctrl(klp, kld, kli, log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/lin_pid_log.csv")
         self.angular_pid=PID_ctrl(kap, kad, kai, log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ang_pid_log.csv")
         self.control_timer = self.create_timer(0.01, self.control_loop)
-        self.linear_error_tolerance = y_axis_alignment_tolerance
+        self.linear_error_tolerance = pid_linear_error_tolerance
         self.angular_error_tolerance = 0.1 # rad TODO: tune this
 
         if log:
@@ -51,29 +51,35 @@ class ControllerNode(Node):
         self.velocity_target = msg
 
     # End control if the pose target is 0
-    def cmd_pose_callback(self, msg):
-        self.goal_pose = msg
-        if self.goal_pose.pose.position.x == 0 and self.goal_pose.pose.position.y == 0 and self.goal_pose.pose.orientation.z == 0:
+    def cmd_odom_callback(self, msg):
+        self.goal_odom = msg
+        if self.goal_odom.pose.pose.position.x == 0 and self.goal_odom.pose.pose.position.y == 0 and self.goal_odom.pose.pose.orientation.z == 0:
             self.reset_control()
 
     def control_loop(self):
+        if (self.goal_odom.pose.pose.position.x == 0 and self.goal_odom.pose.pose.position.y == 0 and self.goal_odom.pose.pose.orientation.z == 0) and (self.velocity_target.linear.x == 0 and self.velocity_target.angular.z == 0):
+            return
+        
         try:
-            odom_msg = self.localization.update_odometry()
+            current_odom = self.localization.update_odometry()
         except Exception as e:
             self.get_logger().error(f"Error updating odometry: {e}")
             return
         
-        if odom_msg is None:
+        if current_odom is None:
             return
         
         if log:
-            self.log_pose(odom_msg)
+            self.log_pose(current_odom)
         
-        self.odom_publisher.publish(odom_msg)
+        self.odom_publisher.publish(current_odom)
 
         # We have a pose target
-        if self.goal_pose.pose.position.x != 0 or self.goal_pose.pose.position.y != 0 or self.goal_pose.pose.orientation.z != 0:
-            linear_error, angular_error = calculate_pos_error(odom_msg.pose.pose, self.goal_pose.pose)
+        if self.goal_odom.pose.pose.position.x != 0 or self.goal_odom.pose.pose.position.y != 0 or self.goal_odom.pose.pose.orientation.z != 0:
+            
+            # self.get_logger().info(f"Goal: {self.goal_odom.pose.pose.position.x}, Curent: {current_odom.pose.pose.position.x}")
+
+            linear_error, angular_error = calculate_pos_error(current_odom.pose.pose, self.goal_odom.pose.pose)
 
             # Check if we reached the goal
             if linear_error < self.linear_error_tolerance:
@@ -82,7 +88,7 @@ class ControllerNode(Node):
                 self.cmd_publisher.publish(String(data="goal_reached"))
                 return
         
-            stamp = odom_msg.header.stamp
+            stamp = current_odom.header.stamp
             linear_vel = self.linear_pid.update([linear_error, stamp])
             # angular_vel = self.angular_pid.update([angular_error, stamp])
             angular_vel = 0.0 # no angular control for now
@@ -123,20 +129,20 @@ class ControllerNode(Node):
     def reset_control(self):
         self.linear_pid.clear_history()
         self.angular_pid.clear_history()
-        self.goal_pose.pose.position.x = 0
-        self.goal_pose.pose.position.y = 0
-        self.goal_pose.pose.orientation.z = 0
+        self.goal_odom.pose.pose.position.x = 0
+        self.goal_odom.pose.pose.position.y = 0
+        self.goal_odom.pose.pose.orientation.z = 0
         self.motor_controller.set_velocity(0, 0)
     
     def setup_logger(self):
         with open(self.log_file, "w") as file:
             file.write("Timestamp,X,Y,Z,Orientation_Z,Orientation_W\n") 
 
-    def log_pose(self, odom_msg):
-        pose = odom_msg.pose.pose
+    def log_pose(self, current_odom):
+        pose = current_odom.pose.pose
         position = pose.position
         orientation = pose.orientation
-        timestamp = Time.from_msg(odom_msg.header.stamp).nanoseconds / 1e9
+        timestamp = Time.from_msg(current_odom.header.stamp).nanoseconds / 1e9
 
         # Write to CSV
         with open(self.log_file, "a") as file:
