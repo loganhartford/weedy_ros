@@ -78,6 +78,41 @@ class TeleopNode(Node):
                     self.cmd_vel_publisher.publish(twist)
                     self.last_linear = linear_x
                     self.last_angular = angular_z
+                
+            elif event.type == pygame.JOYHATMOTION:
+                value = event.value
+                horizontal = value[0]
+                vertical = value[1]
+                if horizontal == -1:
+                    direction = "left"
+                elif horizontal == 1:
+                    direction = "right"
+                elif vertical == 1:
+                    direction = "up"
+                elif vertical == -1:
+                    direction = "down"
+                else: # stop 
+                    direction = "stop"
+                
+                try:
+                    self.uart.manual_control(direction)
+                except Exception as e:
+                    self.get_logger().error(f"Error sending command: {e}")
+            
+            elif event.type == pygame.JOYBUTTONDOWN and event.button == 10:
+                direction = "drill"
+                try:
+                    self.uart.manual_control(direction)
+                except Exception as e:
+                    self.get_logger().error(f"Error sending command: {e}")
+            
+            elif event.type == pygame.JOYBUTTONUP and event.button == 10:
+                direction = "stop"
+                try:
+                    self.uart.manual_control(direction)
+                except Exception as e:
+                    self.get_logger().error(f"Error sending command: {e}")
+                    
 
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = event.button
@@ -107,12 +142,20 @@ class TeleopNode(Node):
                     cmd.data = "print_odom"
                     self.cmd_publisher.publish(cmd)
                     self.get_logger().info('Print odom.')
-                
+
                 elif button == 5: # Right Bumper - Send y-axis move command
                     try:
-                        self.uart.send_command(1, 185)
+                        self.uart.send_command(1, 50)
                     except Exception as e:
                         self.get_logger().error(f"Error sending command: {e}")
+                
+                elif button == 6: # - Button
+                    pass
+
+                elif button == 7: # + Button
+                    pass
+                
+                
 
 def main(args=None):
     rclpy.init(args=args)

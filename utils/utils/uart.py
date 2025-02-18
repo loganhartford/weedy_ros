@@ -12,11 +12,20 @@ class UART:
         self.ticks_timeout = 0.01 # s
         self.ack_timeout = 0.1  # s
 
+        self.ticks_byte = 0xAE
+        self.battery_byte = 0x11
+        self.left_byte = 0x7E
+        self.right_byte = 0x3F
+        self.up_byte = 0x5A
+        self.down_byte = 0x9A
+        self.drill_byte = 0x0F
+        self.stop_byte = 0x07
+
     def get_ticks(self):
         if self.ser.in_waiting:
             self.ser.reset_input_buffer()
         
-        byte_to_send = bytes([0xAE])
+        byte_to_send = bytes([self.ticks_byte])
         self.ser.write(byte_to_send)
 
         buffer = bytearray()
@@ -30,7 +39,7 @@ class UART:
         stamp = self.clock.now()
         
         # Validate start byte
-        if buffer[0] != 0xAE:
+        if buffer[0] != self.ticks_byte:
             raise UARTError("Invalid start byte.")
         
         # Validate the checksum
@@ -49,12 +58,33 @@ class UART:
             ticks2 -= (1 << 16)
 
         return ticks1, ticks2, stamp
+    
+    def manual_control(self, direction):
+        print(f"Manual control: {direction}")
+        
+        if direction == "left":
+            byte_to_send = bytes([self.left_byte])
+        elif direction == "right":
+            byte_to_send = bytes([self.right_byte])
+        elif direction == "up":
+            byte_to_send = bytes([self.up_byte])
+        elif direction == "down":
+            byte_to_send = bytes([self.down_byte])
+        elif direction == "drill":
+            byte_to_send = bytes([self.drill_byte])
+        elif direction == "stop":
+            byte_to_send = bytes([self.stop_byte])
+        else:
+            raise UARTError("Invalid manual control.")
+        
+        self.ser.write(byte_to_send)
+
 
     def get_battery_voltage(self):
         if self.ser.in_waiting:
             self.ser.reset_input_buffer()
         
-        byte_to_send = bytes([0x11])
+        byte_to_send = bytes([self.battery_byte])
         self.ser.write(byte_to_send)
 
         buffer = bytearray()
@@ -67,7 +97,7 @@ class UART:
                 buffer.extend(data)
         
         # Validate start byte
-        if buffer[0] != 0x11:
+        if buffer[0] != self.battery_byte:
             raise UARTError("Invalid start byte.")
         
         # Validate the checksum
@@ -80,8 +110,6 @@ class UART:
         voltage = int_part + (decimal_part / 100)
 
         return voltage
-
-
     
     def send_command(self, axis, position):
         position = int(position)
