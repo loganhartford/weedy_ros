@@ -12,7 +12,7 @@ from locomotion.localization import Localization
 import locomotion.plot
 from locomotion.pid import PID_ctrl
 from utils.utilities import calculate_pos_error
-from utils.robot_params import max_linear_speed, max_angular_speed, pid_linear_error_tolerance, log
+from utils.robot_params import max_linear_speed, max_angular_speed, pid_linear_error_tolerance, log, max_zero_angular_speed
 
 class ControllerNode(Node):
     # TODO: Tune angluar with second motor
@@ -57,7 +57,7 @@ class ControllerNode(Node):
             self.reset_control()
 
     def control_loop(self):
-        if (self.goal_odom.pose.pose.position.x == 0 and self.goal_odom.pose.pose.position.y == 0 and self.goal_odom.pose.pose.orientation.z == 0) and (self.velocity_target.linear.x == 0 and self.velocity_target.angular.z == 0):
+        if (self.goal_odom.pose.pose.position.x == 0 and self.goal_odom.pose.pose.position.y == 0 and self.goal_odom.pose.pose.orientation.z == 0) and (self.velocity_target.linear.x == 0 and self.velocity_target.angular.z == 0) and (self.last_angular_velocity == 0 and self.last_linear_velocity == 0):
             return
         
         try:
@@ -116,7 +116,8 @@ class ControllerNode(Node):
         # Bound velocities to robot limits
         if abs(smooth_linear_vel) > max_linear_speed:
             smooth_linear_vel = max_linear_speed if smooth_linear_vel > 0 else -max_linear_speed
-        if abs(smooth_angular_vel) > max_angular_speed:
+        # if abs(smooth_angular_vel) > max_angular_speed: 
+        if abs(smooth_angular_vel) > max_zero_angular_speed: # zero point turns
             smooth_angular_vel = max_angular_speed if smooth_angular_vel > 0 else -max_angular_speed
 
         # This is so the motor will actually shut off since in motor control

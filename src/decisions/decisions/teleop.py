@@ -10,7 +10,7 @@ from utils.uart import UART
 # Fix for headless environments (SSH, no GUI)
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
-from utils.robot_params import max_linear_speed, max_angular_speed
+from utils.robot_params import max_linear_speed, max_angular_speed, max_zero_angular_speed
 
 class TeleopNode(Node):
     def __init__(self):
@@ -52,9 +52,24 @@ class TeleopNode(Node):
             cmd = String()
 
             if event.type == pygame.JOYAXISMOTION:
-                # Left joystick: Axis 0 (X for turning), Axis 1 (Y for forward/backward)
-                linear_x = -self.joystick.get_axis(1) * self.linear_speed
-                angular_z = self.joystick.get_axis(0) * self.angular_speed
+                if event.axis == 2 :
+                    left_trigger = self.joystick.get_axis(2) + 1
+                    if left_trigger > 0.5:
+                        angular_z = -max_zero_angular_speed
+                    else:
+                        angular_z = 0.0
+                    linear_x = 0.0
+                elif event.axis == 5:
+                    right_trigger = self.joystick.get_axis(5) + 1
+                    if right_trigger > 0.5:
+                        angular_z = max_zero_angular_speed
+                    else:
+                        angular_z = 0.0
+                    linear_x = 0.0
+                else:
+                    # Left joystick: Axis 0 (X for turning), Axis 1 (Y for forward/backward)
+                    linear_x = -self.joystick.get_axis(1) * self.linear_speed
+                    angular_z = -self.joystick.get_axis(0) * self.angular_speed
 
                 # Dead zone check to reduce redundant messages
                 if abs(linear_x - self.last_linear) > 0.01 or abs(angular_z - self.last_angular) > 0.01:

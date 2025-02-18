@@ -12,6 +12,7 @@ y_axis_max = 245       # mm
 rated_speed = 24.0855 # rad/s (~230 RPM)
 max_linear_speed = 0.3        # m/s (~3 km/h)
 max_angular_speed = 0.3  # rad
+max_zero_angular_speed = 3.0
 
 
 # Encoder specifications

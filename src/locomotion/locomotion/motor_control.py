@@ -35,8 +35,8 @@ class MotorController:
 
     def set_velocity(self, linear_x, angular_z):
         # Calculate wheel velocities in m/s
-        left_wheel_velocity = linear_x - angular_z * self.wheel_base / 2
-        right_wheel_velocity = linear_x + angular_z * self.wheel_base / 2
+        left_wheel_velocity = linear_x + angular_z * self.wheel_base / 2
+        right_wheel_velocity = linear_x - angular_z * self.wheel_base / 2
 
         # Convert wheel velocities to angular velocities (rad/s)
         left_wheel_angular_velocity = left_wheel_velocity / self.wheel_radius
