@@ -72,11 +72,8 @@ class TeleopNode(Node):
                     self.cmd_publisher.publish(cmd)
 
                 elif button == 1:  # B Button - Print battery voltage
-                    try:
-                        voltage = self.uart.get_battery_voltage()
-                        self.get_logger().info(f"Battery voltage: {voltage} V")
-                    except Exception as e:
-                        self.get_logger().error(f"Error getting battery voltage: {e}")
+                    cmd.data = "battery"
+                    self.cmd_publisher.publish(cmd)
 
                 elif button == 2:  # X Button - Capture Image
                     cmd.data = "get_img"

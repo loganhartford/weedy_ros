@@ -41,6 +41,7 @@ class DecisionsNode(Node):
         self.y_axis_alignment_tolerance = y_axis_alignment_tolerance
         self.y_axis_max = y_axis_max
         self.move_timeout = 5  # seconds
+        self.battery_voltage = 37.0 # volts
 
         # State and timers
         self.state = State.IDLE
@@ -212,6 +213,21 @@ class DecisionsNode(Node):
         ground_point = np.dot(self.H, image_point)
         ground_point /= ground_point[2]
         return ground_point[:2]
+    
+    def update_battery(self):
+        try:
+            self.battery_voltage = self.uart.get_battery_voltage()
+            self.get_logger().info(f"Battery voltage: {self.battery_voltage} V")
+
+            if self.battery_voltage > 37.0:
+                self.led_ring.flash_color(0, 255, 0, 1.0)
+            elif self.battery_voltage < 30.0:
+                self.led_ring.flash_color(255, 0, 0, 1.0)
+            else:
+                self.led_ring.flash_color(255, 255, 0, 1.0)
+
+        except Exception as e:
+            self.get_logger().error(f"Error getting battery voltage: {e}")
 
     def publish_twist(self, linear, angular):
         msg = Twist()
@@ -238,8 +254,8 @@ class DecisionsNode(Node):
                 self.get_logger().info(f"Odometry x: {self.odom.pose.pose.position.x}")
             else:
                 self.get_logger().info("No odometry received yet.")
-        elif msg.data == "test":
-            self.get_logger().info(f"Keypoints: {self.get_keypoints(save=True)}")
+        elif msg.data == "battery":
+            self.update_battery()
         else:
             self.get_logger().error(f"'{msg.data}' is not a valid command.")
 
