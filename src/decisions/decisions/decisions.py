@@ -67,6 +67,9 @@ class DecisionsNode(Node):
             State.WAITING: [State.IDLE, State.EXPLORING, State.ALIGNING],
         }
 
+        # Flash battery status on startup
+        self.update_battery()
+
         # Set LED to white
         self.led_ring.set_color(255, 255, 255, 1.0)
         self.get_logger().info("Decisions Node Initialized")
