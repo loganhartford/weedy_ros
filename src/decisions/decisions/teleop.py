@@ -134,7 +134,7 @@ class TeleopNode(Node):
     def send_uart_command(self, arg1, arg2):
         """Sends UART commands via send_command() (used for button presses)."""
         try:
-            self.uart.send_command(arg1, arg2)
+            self.uart.send_command(arg1, arg2, wait=False)
         except Exception as e:
             self.get_logger().error(f"Error sending UART command: {e}")
 

@@ -120,7 +120,7 @@ class UART:
         voltage = int_part + (decimal_part / 100)
         return voltage
 
-    def send_command(self, axis, position):
+    def send_command(self, axis, position, wait=True):
         """
         Sends a command with the given axis and position.
         
@@ -138,8 +138,9 @@ class UART:
         if not self.wait_for_acknowledgment():
             raise UARTError("Timeout waiting for acknowledgment.")
 
-        if not self.wait_for_data_message():
-            raise UARTError("Timeout waiting for response.")
+        if wait:
+            if not self.wait_for_data_message():
+                raise UARTError("Timeout waiting for response.")
 
         return True
 
