@@ -119,3 +119,6 @@ class Localization:
         self.x = 0.0  # m
         self.y = 0.0  # m
         self.theta = 0.0  # rad
+
+        return self.update_odometry()
+
