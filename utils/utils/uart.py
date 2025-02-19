@@ -60,8 +60,6 @@ class UART:
         return ticks1, ticks2, stamp
     
     def manual_control(self, direction):
-        print(f"Manual control: {direction}")
-        
         if direction == "left":
             byte_to_send = bytes([self.left_byte])
         elif direction == "right":
