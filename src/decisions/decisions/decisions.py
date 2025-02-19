@@ -9,7 +9,7 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 
 from utils.uart import UART
-from utils.nucleo_gpio import NucleoGpio
+from utils.nucleo_gpio import NucleoGPIO
 from utils.neopixel_ring import NeoPixelRing
 from decisions.yolo_model import YOLOModel
 from utils.robot_params import (
@@ -42,7 +42,7 @@ class DecisionsNode(Node):
         # Hardware and utility components
         self.uart = UART()
         self.led_ring = NeoPixelRing()
-        self.nuc_gpio = NucleoGpio()
+        self.nuc_gpio = NucleoGPIO()
         self.cv_model = YOLOModel()
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5

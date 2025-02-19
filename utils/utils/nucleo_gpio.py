@@ -2,7 +2,7 @@ import lgpio
 import time
 from utils.exceptions import GPIOError
 
-class NucleoGpio:
+class NucleoGPIO:
     """
     Manages GPIO operations for the Nucleo board's reset pin.
     
@@ -22,7 +22,7 @@ class NucleoGpio:
         try:
             self._open()
             lgpio.gpio_claim_output(self.chip, self.reset_pin, level=1)
-            time.sleep(0.1)
+            time.sleep(0.001)
             lgpio.gpio_write(self.chip, self.reset_pin, 0)
             self._close()
         except Exception as e:

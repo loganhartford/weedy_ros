@@ -2,6 +2,7 @@ from rclpy.clock import Clock
 import serial
 import time
 from utils.exceptions import UARTError
+from utils.nucleo_gpio import NucleoGPIO
 
 class UART:
     """
@@ -18,6 +19,7 @@ class UART:
         self.clock = Clock()
         self.ticks_timeout = 0.01  # seconds
         self.ack_timeout = 0.1     # seconds
+        self.num_tick_timeouts = 0
 
         # Command bytes
         self.ticks_byte = 0xAE
@@ -28,6 +30,8 @@ class UART:
         self.down_byte = 0x9A
         self.drill_byte = 0x0F
         self.stop_byte = 0x07
+
+        self.nucleo_gpio = NucleoGPIO()
 
     def get_ticks(self):
         """
@@ -46,11 +50,15 @@ class UART:
         start_time = time.time()
         while len(buffer) < 6:
             if (time.time() - start_time) > self.ticks_timeout:
-                raise UARTError("Timeout waiting for ticks reply.")
+                self.num_tick_timeouts += 1
+                if self.num_tick_timeouts > 3:
+                    self.nucleo_gpio.toggle_reset()
+                    raise UARTError("Too many timeouts waiting for ticks, resetting Nucleo.")
             data = self.ser.read(self.ser.in_waiting or 1)
             if data:
                 buffer.extend(data)
         stamp = self.clock.now()
+        self.num_tick_timeouts = 0
 
         # Validate response: start byte and checksum
         if buffer[0] != self.ticks_byte:

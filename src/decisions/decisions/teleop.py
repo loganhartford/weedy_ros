@@ -6,7 +6,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 
 from utils.uart import UART
-from utils.nucleo_gpio import NucleoGpio
+from utils.nucleo_gpio import NucleoGPIO
 from utils.robot_params import max_linear_speed, max_angular_speed, max_zero_angular_speed
 
 # Fix for headless environments (SSH, no GUI)
@@ -34,7 +34,7 @@ class TeleopNode(Node):
         self.last_angular = 0.0
 
         self.uart = UART()
-        self.gpio = NucleoGpio()
+        self.gpio = NucleoGPIO()
 
     def check_joystick_connection(self):
         """Checks if a joystick is connected and initializes it if found."""
