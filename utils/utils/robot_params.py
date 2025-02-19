@@ -22,7 +22,7 @@ ticks_per_revolution = 3456  # Encoder ticks per wheel revolution (64*(51+3)) ??
 min_duty_cycle = 9
 max_motor_linear_speed = 2*math.pi*wheel_radius*230/60 - 0.5 # 0.5 safety factor
 min_motor_linear_speed = 2*math.pi*wheel_radius*3/100*230/60
-motor_comp_factor = 1.05
+motor_comp_factor = 1.0
 
 # Feature constraints
 pid_linear_error_tolerance = 0.005 # m
