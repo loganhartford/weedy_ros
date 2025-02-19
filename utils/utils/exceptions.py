@@ -6,3 +6,6 @@ class ModelError(Exception):
 
 class UARTError(Exception):
     pass
+
+class GPIOError(Exception):
+    pass

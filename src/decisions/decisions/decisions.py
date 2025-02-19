@@ -9,6 +9,7 @@ import cv2
 from enum import Enum, auto
 
 from utils.uart import UART
+from utils.nucleo_gpio import NucleoGpio
 from utils.neopixel_ring import NeoPixelRing
 from decisions.yolo_model import YOLOModel
 from utils.robot_params import y_axis_max, y_axis_alignment_tolerance, pixel_points, ground_points, explore_linear_speed
@@ -36,6 +37,7 @@ class DecisionsNode(Node):
         self.led_ring = NeoPixelRing()
         self.cv = YOLOModel()
         self.conf_thresh = 0.6
+        self.nuc_gpio = NucleoGpio()
 
         # Robot parameters
         self.y_axis_alignment_tolerance = y_axis_alignment_tolerance

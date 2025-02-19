@@ -6,6 +6,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 
 from utils.uart import UART
+from utils.nucleo_gpio import NucleoGpio
 
 # Fix for headless environments (SSH, no GUI)
 os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -33,6 +34,7 @@ class TeleopNode(Node):
         self.last_angular = 0.0
 
         self.uart = UART()
+        self.gpio = NucleoGpio()
 
     def check_joystick_connection(self):
         if self.joystick is None or not self.joystick.get_init():
@@ -106,6 +108,13 @@ class TeleopNode(Node):
                         self.uart.send_command(1, 50)
                     except Exception as e:
                         self.get_logger().error(f"Error sending command: {e}")
+                elif button == 6: # - button
+                    try:
+                        self.gpio.toggle_reset()
+                    except Exception as e:
+                        self.get_logger().error(f"Error toggling reset: {e}")
+                elif button == 7: # + button
+                    pass
                 
                 if cmd.data:
                     self.cmd_publisher.publish(cmd)
