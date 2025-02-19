@@ -141,16 +141,18 @@ class UART:
         checksum = (0x01 + axis + pos_high + pos_low) % 256
         message = bytes([0x01, axis, pos_high, pos_low, checksum])
 
-        self.ser.write(message)
+        for attempt in range(3):
+            self.ser.write(message)
 
-        if not self.wait_for_acknowledgment():
-            raise UARTError("Timeout waiting for acknowledgment.")
+            if self.wait_for_acknowledgment():
+                if wait:
+                    if not self.wait_for_data_message():
+                        raise UARTError("Timeout waiting for response.")
+                return True
+            else:
+                self.nucleo_gpio.toggle_reset()
 
-        if wait:
-            if not self.wait_for_data_message():
-                raise UARTError("Timeout waiting for response.")
-
-        return True
+        raise UARTError("Timeout waiting for acknowledgment after 3 attempts.")
 
     def wait_for_acknowledgment(self):
         """

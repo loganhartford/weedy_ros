@@ -25,6 +25,7 @@ class NucleoGPIO:
             time.sleep(0.001)
             lgpio.gpio_write(self.chip, self.reset_pin, 0)
             self._close()
+            time.sleep(0.001)
         except Exception as e:
             raise GPIOError(f"Error toggling reset: {e}")
 
