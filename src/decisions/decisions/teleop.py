@@ -16,17 +16,10 @@ class TeleopNode(Node):
     def __init__(self):
         super().__init__('teleop_node')
 
-        # Initialize pygame
         pygame.init()
-
-        # Detect joystick
-        if pygame.joystick.get_count() == 0:
-            self.get_logger().error("No joystick detected. Ensure it's connected.")
-            exit(1)
-
-        self.joystick = pygame.joystick.Joystick(0)
-        self.joystick.init()
-        self.get_logger().info(f"Found joystick: {self.joystick.get_name()}")
+        self.joystick = None
+        self.timer = self.create_timer(0.1, self.timer_callback)
+        self.joystick_timer = self.create_timer(1.0, self.check_joystick_connection)
 
         # Publishers
         self.cmd_publisher = self.create_publisher(String, '/cmd', 10)
@@ -38,124 +31,98 @@ class TeleopNode(Node):
 
         self.last_linear = 0.0
         self.last_angular = 0.0
-        
-        self.timer = self.create_timer(0.1, self.timer_callback)
 
         self.uart = UART()
 
+    def check_joystick_connection(self):
+        if self.joystick is None or not self.joystick.get_init():
+            pygame.joystick.quit()
+            pygame.joystick.init()
+            if pygame.joystick.get_count() > 0:
+                self.joystick = pygame.joystick.Joystick(0)
+                self.joystick.init()
+                self.get_logger().info(f"Joystick connected: {self.joystick.get_name()}")
+            else:
+                self.get_logger().warn("No joystick detected. Retrying...")
+
+
     def timer_callback(self):
-        pygame.event.pump() # Process pygame events
-        events = pygame.event.get() # Get all events since last call
+        if self.joystick is None or not self.joystick.get_init():
+            return  # Skip execution if no joystick is connected
+
+        pygame.event.pump()  # Process pygame events
+        events = pygame.event.get()  # Get all events since last call
 
         for event in events:
             twist = Twist()
             cmd = String()
 
             if event.type == pygame.JOYAXISMOTION:
-                if event.axis == 2 :
+                if event.axis == 2:
                     left_trigger = self.joystick.get_axis(2) + 1
-                    if left_trigger > 0.5:
-                        angular_z = -max_zero_angular_speed
-                    else:
-                        angular_z = 0.0
+                    angular_z = -max_zero_angular_speed if left_trigger > 0.5 else 0.0
                     linear_x = 0.0
                 elif event.axis == 5:
                     right_trigger = self.joystick.get_axis(5) + 1
-                    if right_trigger > 0.5:
-                        angular_z = max_zero_angular_speed
-                    else:
-                        angular_z = 0.0
+                    angular_z = max_zero_angular_speed if right_trigger > 0.5 else 0.0
                     linear_x = 0.0
                 else:
-                    # Left joystick: Axis 0 (X for turning), Axis 1 (Y for forward/backward)
                     linear_x = -self.joystick.get_axis(1) * self.linear_speed
                     angular_z = -self.joystick.get_axis(0) * self.angular_speed
 
-                # Dead zone check to reduce redundant messages
                 if abs(linear_x - self.last_linear) > 0.01 or abs(angular_z - self.last_angular) > 0.01:
                     twist.linear.x = linear_x
                     twist.angular.z = angular_z
                     self.cmd_vel_publisher.publish(twist)
                     self.last_linear = linear_x
                     self.last_angular = angular_z
-                
+
             elif event.type == pygame.JOYHATMOTION:
-                value = event.value
-                horizontal = value[0]
-                vertical = value[1]
-                if horizontal == -1:
-                    direction = "left"
-                elif horizontal == 1:
-                    direction = "right"
-                elif vertical == 1:
-                    direction = "up"
-                elif vertical == -1:
-                    direction = "down"
-                else: # stop 
-                    direction = "stop"
-                
+                direction = {(-1, 0): "left", (1, 0): "right", (0, 1): "up", (0, -1): "down"}.get(event.value, "stop")
                 try:
                     self.uart.manual_control(direction)
                 except Exception as e:
                     self.get_logger().error(f"Error sending command: {e}")
-            
-            elif event.type == pygame.JOYBUTTONDOWN and event.button == 10:
-                direction = "drill"
-                try:
-                    self.uart.manual_control(direction)
-                except Exception as e:
-                    self.get_logger().error(f"Error sending command: {e}")
-            
-            elif event.type == pygame.JOYBUTTONUP and event.button == 10:
-                direction = "stop"
-                try:
-                    self.uart.manual_control(direction)
-                except Exception as e:
-                    self.get_logger().error(f"Error sending command: {e}")
-                    
 
             elif event.type == pygame.JOYBUTTONDOWN:
                 button = event.button
-
-                if button == 0:  # A Button - Start autonomous mode
+                if button == 0:
                     cmd.data = "start"
-                    self.cmd_publisher.publish(cmd)
-
-                elif button == 1:  # B Button - Print battery voltage
+                elif button == 1:
                     cmd.data = "battery"
-                    self.cmd_publisher.publish(cmd)
-
-                elif button == 2:  # X Button - Capture Image
+                elif button == 2:
                     cmd.data = "get_img"
                     self.get_logger().info("Capturing image.")
-                    self.cmd_publisher.publish(cmd)
-
-                elif button == 3:  # Y Button - Emergency Stop
+                elif button == 3:
                     twist.linear.x = 0.0
                     twist.angular.z = 0.0
                     cmd.data = "stop"
-                    self.get_logger().error('Emergency STOP!')
-                    self.cmd_publisher.publish(cmd)
-                    self.cmd_vel_publisher.publish(twist)
-                
-                elif button == 4:  # Left Bumper - Print odom
+                    self.get_logger().error("Emergency STOP!")
+                elif button == 4:
                     cmd.data = "print_odom"
-                    self.cmd_publisher.publish(cmd)
-                    self.get_logger().info('Print odom.')
-
-                elif button == 5: # Right Bumper - Send y-axis move command
+                    self.get_logger().info("Print odom.")
+                elif button == 5:
                     try:
                         self.uart.send_command(1, 50)
                     except Exception as e:
                         self.get_logger().error(f"Error sending command: {e}")
                 
-                elif button == 6: # - Button
-                    pass
+                if cmd.data:
+                    self.cmd_publisher.publish(cmd)
+                    self.cmd_vel_publisher.publish(twist)
 
-                elif button == 7: # + Button
-                    pass
-                
-                
+            elif event.type == pygame.JOYBUTTONDOWN and event.button == 10:
+                try:
+                    self.uart.manual_control("drill")
+                except Exception as e:
+                    self.get_logger().error(f"Error sending command: {e}")
+
+            elif event.type == pygame.JOYBUTTONUP and event.button == 10:
+                try:
+                    self.uart.manual_control("stop")
+                except Exception as e:
+                    self.get_logger().error(f"Error sending command: {e}")
+
 
 def main(args=None):
     rclpy.init(args=args)
