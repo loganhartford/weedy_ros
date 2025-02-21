@@ -128,7 +128,7 @@ class ControllerNode(Node):
             )
 
             # If the goal is reached, reset control.
-            if linear_error < self.linear_error_tolerance:
+            if linear_error < self.linear_error_tolerance and angular_error < self.angular_error_tolerance:
                 self.reset_control()
                 self.get_logger().info("goal_reached")
                 self.cmd_publisher.publish(String(data="goal_reached"))
@@ -136,7 +136,7 @@ class ControllerNode(Node):
 
             stamp = current_odom.header.stamp
             linear_vel = self.linear_pid.update([linear_error, stamp])
-            angular_vel = 0.0  # Angular control is disabled for now
+            angular_vel = self.angular_pid.update([angular_error, stamp])
 
             # Bound velocities within robot limits.
             linear_vel = max(-max_linear_speed, min(linear_vel, max_linear_speed))

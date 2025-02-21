@@ -38,9 +38,6 @@ class BNO085IMU(Node):
         # Set up a timer to publish data at the desired frequency
         self.timer_period = 1.0 / self.frequency  # seconds
         self.timer = self.create_timer(self.timer_period, self.publish_imu_data)
-        
-        # Counter for logging frequency control
-        self.iteration_count = 0
 
     def publish_imu_data(self):
         """Read IMU data and publish as a ROS 2 Imu message."""

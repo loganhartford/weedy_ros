@@ -98,7 +98,7 @@ class TeleopNode(Node):
 
         # Button mapping (based on Xbox controller layout)
         commands = {
-            0: "start",        # A button
+            0: "circuit",        # A button
             1: "battery",      # B button
             2: "get_img",      # X button
             3: "stop",         # Y button (Emergency stop)

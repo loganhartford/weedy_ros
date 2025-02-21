@@ -20,13 +20,12 @@ from utils.robot_params import (
     explore_linear_speed,
 )
 
-
 class State(Enum):
     IDLE = auto()
     EXPLORING = auto()
     ALIGNING = auto()
     WAITING = auto()
-
+    CIRCUIT = auto()  # new state for circuit mode
 
 class DecisionsNode(Node):
     def __init__(self):
@@ -54,10 +53,14 @@ class DecisionsNode(Node):
         self.battery_voltage = None
         self.update_battery()
 
-        # Timers
+        # Timers for existing states
         self.explore_timer = None
         self.align_timer = None
         self.wait_timer = None
+
+        # Hard-coded path for circuit mode (list of (x, y) coordinates in meters)
+        self.circuit_path = [(1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)]
+        self.current_circuit_index = 0
 
         # Compute homography matrix
         self.H, status = cv2.findHomography(pixel_points, ground_points, cv2.RANSAC, 5.0)
@@ -68,10 +71,11 @@ class DecisionsNode(Node):
 
         # Allowed state transitions
         self.valid_transitions = {
-            State.IDLE: [State.EXPLORING],
+            State.IDLE: [State.EXPLORING, State.CIRCUIT],
             State.EXPLORING: [State.IDLE, State.ALIGNING],
             State.ALIGNING: [State.IDLE, State.WAITING],
             State.WAITING: [State.IDLE, State.EXPLORING, State.ALIGNING],
+            State.CIRCUIT: [State.IDLE],
         }
         self.state = State.IDLE
 
@@ -97,6 +101,8 @@ class DecisionsNode(Node):
             self.start_aligning()
         elif self.state == State.WAITING:
             self.start_waiting()
+        elif self.state == State.CIRCUIT:
+            self.start_circuit()
 
     def transition_to_state(self, new_state: State):
         """Transition to a new state if allowed."""
@@ -165,7 +171,7 @@ class DecisionsNode(Node):
             self.get_logger().warn("Odometry not yet received.")
             return
 
-        # Adjust odometry based on keypoint displacement
+        # Move to the best point
         new_odom = Odometry()
         new_odom.header = self.last_odom.header
         new_odom.child_frame_id = self.last_odom.child_frame_id
@@ -199,6 +205,36 @@ class DecisionsNode(Node):
             self.wait_timer.cancel()
             self.transition_to_state(State.IDLE)
 
+    # --- Circuit mode using the PID controlled locomotion system ---
+    def start_circuit(self):
+        """Begin circuit mode by sending the first goal to the locomotion system."""
+        self.current_circuit_index = 0
+        self.get_logger().info("Starting circuit mode.")
+        self.send_next_goal()
+
+    def send_next_goal(self):
+        """Send a position request for the next circuit target using the locomotion system's PID."""
+        if self.current_circuit_index >= len(self.circuit_path):
+            self.get_logger().info("Circuit complete.")
+            self.transition_to_state(State.IDLE)
+            return
+
+        target = self.circuit_path[self.current_circuit_index]
+        self.get_logger().info(f"Sending goal for point {self.current_circuit_index}: {target}")
+
+        goal = Odometry()
+        goal.header.stamp = self.get_clock().now().to_msg()
+        # goal.child_frame_id = self.last_odom.child_frame_id
+        goal.pose.pose.position.x = target[0]
+        goal.pose.pose.position.y = target[1]
+        # goal.pose.pose.position.z = 0.0
+
+        # goal.pose.pose.orientation.w = 1.0
+
+        self.get_logger().info(f"Goal: {goal.pose.pose.position.x}, {goal.pose.pose.position.y}")
+
+        self.cmd_odom_publisher.publish(goal)
+
     def get_boxes(self, save=False):
         """Run inference and filter detected boxes based on confidence."""
         result = self.cv_model.run_inference(save=save)
@@ -217,7 +253,6 @@ class DecisionsNode(Node):
 
         kp_list = []
         for kp in result.keypoints:
-            # Pair names with keypoint data and sort by preferred order
             names = ["flower", "base", "upper", "lower"]
             points = list(zip(names, kp.data[0]))
             points.sort(key=lambda x: ["base", "lower", "upper", "flower"].index(x[0]))
@@ -241,12 +276,11 @@ class DecisionsNode(Node):
         try:
             self.battery_voltage = self.uart.get_battery_voltage()
             self.get_logger().info(f"Battery voltage: {self.battery_voltage} V")
-
-            if self.battery_voltage > 37.0:  # Good
+            if self.battery_voltage > 37.0:
                 self.led_ring.flash_color(0, 255, 0, 1.0)
-            elif self.battery_voltage < 30.0:  # Bad
+            elif self.battery_voltage < 30.0:
                 self.led_ring.flash_color(255, 0, 0, 1.0)
-            else:  # OK
+            else:
                 self.led_ring.flash_color(255, 255, 0, 1.0)
         except Exception as e:
             self.get_logger().error(f"Error getting battery voltage: {e}")
@@ -266,7 +300,12 @@ class DecisionsNode(Node):
         elif command == "stop":
             self.transition_to_state(State.IDLE)
         elif command == "goal_reached":
-            self.transition_to_state(State.ALIGNING)
+            if self.state == State.CIRCUIT:
+                # In circuit mode, move to the next point when a goal is reached.
+                self.current_circuit_index += 1
+                self.send_next_goal()
+            else:
+                self.transition_to_state(State.ALIGNING)
         elif command == "get_img":
             self.cv_model.capture_and_save_image()
         elif command == "print_odom":
@@ -280,6 +319,8 @@ class DecisionsNode(Node):
                 self.get_logger().info("No odometry received yet.")
         elif command == "battery":
             self.update_battery()
+        elif command == "circuit":
+            self.transition_to_state(State.CIRCUIT)
         else:
             self.get_logger().error(f"'{command}' is not a valid command.")
 
@@ -291,7 +332,6 @@ class DecisionsNode(Node):
         self.cancel_all_timers()
         super().destroy_node()
 
-
 def main(args=None):
     rclpy.init(args=args)
     node = DecisionsNode()
@@ -301,7 +341,6 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-
 
 if __name__ == "__main__":
     main()
