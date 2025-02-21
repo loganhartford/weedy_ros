@@ -115,8 +115,11 @@ class TeleopNode(Node):
             self.send_uart_command(1, 50)
         elif event.button == 6:  # Back button (-) - Toggle GPIO reset
             self.toggle_gpio_reset()
-        elif event.button == 7:  # Start button (+) - Reserved for future use
-            pass
+        elif event.button == 7:  # Start button (+) - Circle turn
+            radius = 0.35  # Choose a radius greater than 0.269 m for pure forward motion
+            twist.linear.x = 0.3
+            twist.angular.z = -twist.linear.x / radius
+            self.cmd_vel_publisher.publish(twist)
         elif event.button == 10:  # Right Stick Press - Drill activation (uses manual_control)
             self.send_manual_command("drill")
 
