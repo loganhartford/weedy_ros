@@ -12,57 +12,77 @@ from adafruit_bno08x import (
 from adafruit_bno08x.i2c import BNO08X_I2C
 
 class BNO085IMU(Node):
-    def __init__(self, frequency=50):
+    def __init__(self):
         super().__init__('bno085_imu_node')
         
-        # Initialize I2C
-        self.i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
+        # Declare parameters for flexibility
+        self.declare_parameter("publish_frequency", 50)
+        self.declare_parameter("frame_id", "imu_link")
+        
+        # Retrieve parameter values
+        self.frequency = self.get_parameter("publish_frequency").value
+        self.frame_id = self.get_parameter("frame_id").value
+        
+        # Initialize I2C interface
+        self.i2c = busio.I2C(board.SCL, board.SDA)
         self.bno = BNO08X_I2C(self.i2c)
 
-        # Enable IMU features
+        # Enable features
         self.bno.enable_feature(BNO_REPORT_ACCELEROMETER)
         self.bno.enable_feature(BNO_REPORT_GYROSCOPE)
         self.bno.enable_feature(BNO_REPORT_ROTATION_VECTOR)
 
-        # Create IMU publisher
+        # Create an IMU publisher
         self.imu_publisher = self.create_publisher(Imu, '/imu', 10)
 
-        # Set up timer to publish data
-        self.timer_period = 1.0 / frequency  # Convert frequency to period
+        # Set up a timer to publish data at the desired frequency
+        self.timer_period = 1.0 / self.frequency  # seconds
         self.timer = self.create_timer(self.timer_period, self.publish_imu_data)
+        
+        # Counter for logging frequency control
+        self.iteration_count = 0
 
     def publish_imu_data(self):
-        """Read IMU data and publish as ROS 2 IMU message"""
+        """Read IMU data and publish as a ROS 2 Imu message."""
         msg = Imu()
         msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = "imu_link"
+        msg.header.frame_id = self.frame_id
+        
+        try:
+            # Read accelerometer data (m/s^2)
+            accel_x, accel_y, accel_z = self.bno.acceleration
+            msg.linear_acceleration.x = accel_x
+            msg.linear_acceleration.y = accel_y
+            msg.linear_acceleration.z = accel_z
 
-        # Read accelerometer (m/s^2)
-        accel_x, accel_y, accel_z = self.bno.acceleration
-        msg.linear_acceleration.x = accel_x
-        msg.linear_acceleration.y = accel_y
-        msg.linear_acceleration.z = accel_z
+            # Read gyroscope data (rad/s)
+            gyro_x, gyro_y, gyro_z = self.bno.gyro
+            msg.angular_velocity.x = gyro_x
+            msg.angular_velocity.y = gyro_y
+            msg.angular_velocity.z = gyro_z
 
-        # Read gyroscope (rad/s)
-        gyro_x, gyro_y, gyro_z = self.bno.gyro
-        msg.angular_velocity.x = gyro_x
-        msg.angular_velocity.y = gyro_y
-        msg.angular_velocity.z = gyro_z
-
-        # Read quaternion rotation
-        quat_i, quat_j, quat_k, quat_real = self.bno.quaternion
-        msg.orientation.x = quat_i
-        msg.orientation.y = quat_j
-        msg.orientation.z = quat_k
-        msg.orientation.w = quat_real
-
+            # Read quaternion rotation data
+            quat_i, quat_j, quat_k, quat_real = self.bno.quaternion
+            msg.orientation.x = quat_i
+            msg.orientation.y = quat_j
+            msg.orientation.z = quat_k
+            msg.orientation.w = quat_real
+            
+        except Exception as e:
+            self.get_logger().error(f"Error reading IMU data: {e}")
+            return
+        
+        # Set covariance arrays (using -1 in the first element to indicate unknown covariance)
+        msg.orientation_covariance = [-1.0] + [0.0] * 8
+        msg.angular_velocity_covariance = [-1.0] + [0.0] * 8
+        msg.linear_acceleration_covariance = [-1.0] + [0.0] * 8
+        
         # Publish the IMU message
         self.imu_publisher.publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)
-
-    imu_node = BNO085IMU(frequency=50)
+    imu_node = BNO085IMU()
     try:
         rclpy.spin(imu_node)
     except KeyboardInterrupt:

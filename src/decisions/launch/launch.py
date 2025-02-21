@@ -18,6 +18,13 @@ def generate_launch_description():
             prefix='/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3',
         ),
         Node(
+            package='locomotion',
+            executable='bno085_imu',
+            name='bno085_imu',
+            output='screen',
+            prefix='/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3',
+        ),
+        Node(
             package='decisions',
             executable='teleop',
             name='teleop',
