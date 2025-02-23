@@ -1,194 +1,130 @@
+import rclpy
+from rclpy.node import Node
 from rclpy.clock import Clock
+from std_msgs.msg import String, UInt8MultiArray, String, Int32MultiArray
 import serial
 import time
+import numpy as np
+
 from utils.exceptions import UARTError
 from utils.nucleo_gpio import NucleoGPIO
 
-class UART:
-    """
-    Handles serial communication with the robot's UART device (Nucleo).
-    
-    This class provides methods to:
-      - Request and parse encoder ticks.
-      - Read the battery voltage.
-      - Send manual control commands.
-      - Send motion commands and wait for acknowledgments.
-    """
+class UARTNode(Node):
     def __init__(self):
+        super().__init__('uart_node')
+
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
         self.clock = Clock()
         self.ticks_timeout = 0.01  # seconds
         self.ack_timeout = 0.1     # seconds
         self.num_tick_timeouts = 0
 
-        # Command bytes
+        self.subscription = self.create_subscription(
+            UInt8MultiArray,
+            '/send_uart',
+            self.bytes_callback,
+            10
+        )
+
+        self.cmd_pub = self.create_publisher(String, '/cmd', 10)
+        self.ticks_pub = self.create_publisher(Int32MultiArray, '/ticks', 10)
+        self.create_timer(0.1, self.check_incoming_messages)
+
+        # Command and special byte definitions
+        self.weed_removal_byte = 0x01
+        self.callback_byte = 0x02
         self.ticks_byte = 0xAE
         self.battery_byte = 0x11
-        self.left_byte = 0x7E
-        self.right_byte = 0x3F
-        self.up_byte = 0x5A
-        self.down_byte = 0x9A
-        self.drill_byte = 0x0F
-        self.stop_byte = 0x07
 
-        self.nucleo_gpio = NucleoGPIO()
+        self.nucleo_gpio = NucleoGPIO() # For resetting the Nucleo
 
-    def get_ticks(self):
-        """
-        Requests encoder ticks and returns (ticks1, ticks2, timestamp).
-        
-        Expects a 6-byte response:
-          - Start byte, 2 bytes for left ticks, 2 bytes for right ticks, checksum.
-        """
-        # Clear any leftover data
-        if self.ser.in_waiting:
-            self.ser.reset_input_buffer()
+    def bytes_callback(self, msg: UInt8MultiArray):
+        data = bytes(msg.data)
+        if not data:
+            self.get_logger().warning("Received empty byte array.")
+            return
 
-        self.ser.write(bytes([self.ticks_byte]))
+        if data[0] == self.weed_removal_byte:
+            try:
+                self.send_weed_removal(data)
+            except UARTError as e:
+                self.get_logger().error(f"UART Error during command processing: {e}")
+        else:
+            self.ser.write(data)
+            self.get_logger().info("Non-command bytes sent without waiting.")
 
-        buffer = bytearray()
-        start_time = time.time()
-        while len(buffer) < 6:
-            if (time.time() - start_time) > self.ticks_timeout:
-                self.num_tick_timeouts += 1
-                if self.num_tick_timeouts > 3:
-                    self.nucleo_gpio.toggle_reset()
-                    raise UARTError("Too many timeouts waiting for ticks, resetting Nucleo.")
-            data = self.ser.read(self.ser.in_waiting or 1)
-            if data:
-                buffer.extend(data)
-        stamp = self.clock.now()
-        self.num_tick_timeouts = 0
-
-        # Validate response: start byte and checksum
-        if buffer[0] != self.ticks_byte:
-            raise UARTError("Invalid start byte in ticks reply.")
-
-        if sum(buffer[:-1]) % 256 != buffer[-1]:
-            raise UARTError("Invalid tick checksum.")
-
-        # Parse tick values (handle signed 16-bit integers)
-        ticks1 = (buffer[1] << 8) | buffer[2]
-        ticks2 = (buffer[3] << 8) | buffer[4]
-        if ticks1 & (1 << 15):
-            ticks1 -= (1 << 16)
-        if ticks2 & (1 << 15):
-            ticks2 -= (1 << 16)
-
-        return ticks1, ticks2, stamp
-
-    def manual_control(self, direction):
-        """
-        Sends a manual control command.
-        
-        Valid directions: 'left', 'right', 'up', 'down', 'drill', 'stop'.
-        """
-        command_bytes = {
-            "left": self.left_byte,
-            "right": self.right_byte,
-            "up": self.up_byte,
-            "down": self.down_byte,
-            "drill": self.drill_byte,
-            "stop": self.stop_byte
-        }
-        if direction not in command_bytes:
-            raise UARTError("Invalid manual control command.")
-        
-        self.ser.write(bytes([command_bytes[direction]]))
-
-    def get_battery_voltage(self):
-        """
-        Requests and returns the battery voltage as a float.
-        
-        Expects a 4-byte response:
-          - Start byte, integer part, decimal part, checksum.
-        """
-        if self.ser.in_waiting:
-            self.ser.reset_input_buffer()
-
-        self.ser.write(bytes([self.battery_byte]))
-
-        buffer = bytearray()
-        start_time = time.time()
-        while len(buffer) < 4:
-            if (time.time() - start_time) > self.ack_timeout:
-                raise UARTError("Timeout waiting for battery reply.")
-            data = self.ser.read(self.ser.in_waiting or 1)
-            if data:
-                buffer.extend(data)
-
-        if buffer[0] != self.battery_byte:
-            raise UARTError("Invalid start byte in battery reply.")
-
-        if sum(buffer[:-1]) % 256 != buffer[-1]:
-            raise UARTError("Invalid battery checksum.")
-
-        int_part = buffer[1]
-        decimal_part = buffer[2]
-        voltage = int_part + (decimal_part / 100)
-        return voltage
-
-    def send_command(self, axis, position, wait=True):
-        """
-        Sends a command with the given axis and position.
-        
-        Constructs a message and waits for an acknowledgment and data response.
-        Returns the data response if successful.
-        """
-        position = int(position)
-        pos_high = (position >> 8) & 0xFF
-        pos_low = position & 0xFF
-        checksum = (0x01 + axis + pos_high + pos_low) % 256
-        message = bytes([0x01, axis, pos_high, pos_low, checksum])
+    def send_weed_removal(self, byte_list):
+        if len(byte_list) != 3:
+            raise UARTError("Invalid command message length.")
+        checksum = sum(byte_list) % 256
+        message = bytes(byte_list, checksum)
 
         for attempt in range(3):
             self.ser.write(message)
-
             if self.wait_for_acknowledgment():
-                if wait:
-                    if not self.wait_for_data_message():
-                        raise UARTError("Timeout waiting for response.")
-                return True
+                break
             else:
                 self.nucleo_gpio.toggle_reset()
 
         raise UARTError("Timeout waiting for acknowledgment after 3 attempts.")
 
-    def wait_for_acknowledgment(self):
-        """
-        Waits for an acknowledgment message (5 bytes, starting with 0x03).
-        Returns True if an ACK is received before timeout.
-        """
+    def wait_for_acknowledgment(self) -> bool:
         start_time = time.time()
         buffer = bytearray()
         while (time.time() - start_time) < self.ack_timeout:
             data = self.ser.read(self.ser.in_waiting or 1)
             if data:
                 buffer.extend(data)
+                # Process in chunks of 5 bytes
                 while len(buffer) >= 5:
                     message = buffer[:5]
                     if message[0] == 0x03:  # ACK message type
                         return True
                     buffer = buffer[5:]
             else:
-                time.sleep(0.1)
+                time.sleep(0.05)
         return False
 
-    def wait_for_data_message(self):
-        """
-        Waits for a data message (5 bytes, starting with 0x02).
-        Returns True once a valid data message is received.
-        """
-        start_time = time.time()
-        buffer = bytearray()
-        while True:
-            data = self.ser.read(self.ser.in_waiting or 1)
-            if data:
-                buffer.extend(data)
-                while len(buffer) >= 5:
-                    message = buffer[:5]
-                    if message[0] == 0x02:  # Data message type
-                        return True
-                    buffer = buffer[5:]
+    def check_incoming_messages(self):
+        if self.ser.in_waiting:
+            buffer = self.ser.read(self.ser.in_waiting)
+            
+            # Process ticks message
+            if len(buffer) >= 6 and buffer[0] == self.ticks_byte:
+                
+                if (sum(buffer[0:5]) % 256) != buffer[5]:
+                    self.get_logger().error("Invalid tick checksum.")
+                    return
+
+                # Parse tick values (handle signed 16-bit integers)
+                ticks1 = (buffer[1] << 8) | buffer[2]
+                ticks2 = (buffer[3] << 8) | buffer[4]
+                if ticks1 & (1 << 15):
+                    ticks1 -= (1 << 16)
+                if ticks2 & (1 << 15):
+                    ticks2 -= (1 << 16)
+                stamp = self.clock.now().nanoseconds
+
+                ticks_msg = Int32MultiArray()
+                ticks_msg.data = [ticks1, ticks2, stamp]
+                self.ticks_pub.publish(ticks_msg)
+
+            elif buffer[0] == self.callback_byte:
+                cmd_msg = String(data="removal_complete")
+                self.cmd_pub.publish(cmd_msg)
+                self.get_logger().info("Published cmd: removed")
             else:
-                time.sleep(0.1)
+                self.get_logger().warn("Received unknown message type: " + str(buffer))
+
+def main(args=None):
+    rclpy.init(args=args)
+    uart_node = UARTNode()
+    try:
+        rclpy.spin(uart_node)
+    except KeyboardInterrupt:
+        uart_node.get_logger().info("Keyboard interrupt, shutting down.")
+    finally:
+        uart_node.destroy_node()
+
+if __name__ == '__main__':
+    main()

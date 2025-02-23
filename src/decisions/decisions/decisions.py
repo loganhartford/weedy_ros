@@ -4,11 +4,11 @@ from enum import Enum, auto
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
-from std_msgs.msg import String
+from geometry_msgs.msg import Twist, Point
+from nav_msgs.msg import PoseStamped
+from std_msgs.msg import String, UInt8MultiArray
+from custom_msgs.msg import Points
 
-from utils.uart import UART
 from utils.nucleo_gpio import NucleoGPIO
 from utils.neopixel_ring import NeoPixelRing
 from decisions.yolo_model import YOLOModel
@@ -25,21 +25,20 @@ class State(Enum):
     EXPLORING = auto()
     ALIGNING = auto()
     WAITING = auto()
-    CIRCUIT = auto()  # new state for circuit mode
 
 class DecisionsNode(Node):
     def __init__(self):
         super().__init__("decisions_node")
 
-        # Subscribers & Publishers
         self.create_subscription(String, "/cmd", self.cmd_callback, 10)
-        self.create_subscription(Odometry, "/odom", self.odom_callback, 1)
+        self.create_subscription(PoseStamped, "/pose", self.pose_callback, 1)
+        
         self.cmd_vel_publisher = self.create_publisher(Twist, "/cmd_vel", 10)
-        self.cmd_odom_publisher = self.create_publisher(Odometry, "/cmd_odom", 10)
-        self.last_odom = None
+        self.goal_pub = self.create_publisher(Points, "/goal", 10)
+        self.uart_publisher = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
+        self.pose = None
 
         # Hardware and utility components
-        self.uart = UART()
         self.led_ring = NeoPixelRing()
         self.nuc_gpio = NucleoGPIO()
         self.cv_model = YOLOModel()
@@ -58,10 +57,6 @@ class DecisionsNode(Node):
         self.align_timer = None
         self.wait_timer = None
 
-        # Hard-coded path for circuit mode (list of (x, y) coordinates in meters)
-        self.circuit_path = [(1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0)]
-        self.current_circuit_index = 0
-
         # Compute homography matrix
         self.H, status = cv2.findHomography(pixel_points, ground_points, cv2.RANSAC, 5.0)
         if self.H is not None:
@@ -71,11 +66,10 @@ class DecisionsNode(Node):
 
         # Allowed state transitions
         self.valid_transitions = {
-            State.IDLE: [State.EXPLORING, State.CIRCUIT],
+            State.IDLE: [State.EXPLORING],
             State.EXPLORING: [State.IDLE, State.ALIGNING],
             State.ALIGNING: [State.IDLE, State.WAITING],
             State.WAITING: [State.IDLE, State.EXPLORING, State.ALIGNING],
-            State.CIRCUIT: [State.IDLE],
         }
         self.state = State.IDLE
 
@@ -83,7 +77,6 @@ class DecisionsNode(Node):
         self.get_logger().info("Decisions Node Initialized")
 
     def cancel_all_timers(self):
-        """Cancel any running timers."""
         for attr in ("explore_timer", "align_timer", "wait_timer"):
             timer = getattr(self, attr)
             if timer is not None:
@@ -91,7 +84,6 @@ class DecisionsNode(Node):
                 setattr(self, attr, None)
 
     def on_state_entry(self):
-        """Called after a state transition; cancels any active timers and starts state-specific logic."""
         self.cancel_all_timers()
         if self.state == State.EXPLORING:
             self.start_exploring()
@@ -101,11 +93,8 @@ class DecisionsNode(Node):
             self.start_aligning()
         elif self.state == State.WAITING:
             self.start_waiting()
-        elif self.state == State.CIRCUIT:
-            self.start_circuit()
 
     def transition_to_state(self, new_state: State):
-        """Transition to a new state if allowed."""
         if new_state == self.state:
             self.get_logger().error(f"Already in state {self.state.name}")
             return
@@ -123,7 +112,6 @@ class DecisionsNode(Node):
         self.on_state_entry()
 
     def start_exploring(self):
-        """Begin exploring: move forward and set a timer to check for boxes."""
         self.publish_twist(explore_linear_speed, 0)
         if self.explore_timer:
             self.explore_timer.cancel()
@@ -141,7 +129,6 @@ class DecisionsNode(Node):
             self.transition_to_state(State.ALIGNING)
 
     def start_aligning(self):
-        """Stop movement and set a timer to adjust alignment."""
         self.publish_twist(0, 0)
         if self.align_timer:
             self.align_timer.cancel()
@@ -162,32 +149,22 @@ class DecisionsNode(Node):
         # Check if aligned (convert mm to m)
         if abs(best_point[0] / 1000.0) < self.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
-            self.uart.send_command(1, best_point[1])
+            self.send_removal_command(best_point[1])
             self.align_timer.cancel()
             self.transition_to_state(State.WAITING)
             return
 
-        if self.last_odom is None:
-            self.get_logger().warn("Odometry not yet received.")
-            return
-
-        # Move to the best point
-        new_odom = Odometry()
-        new_odom.header = self.last_odom.header
-        new_odom.child_frame_id = self.last_odom.child_frame_id
-        new_odom.pose.pose.position.x = (
-            self.last_odom.pose.pose.position.x + (best_point[0] / 1000.0)
-        )
-        new_odom.pose.pose.position.y = self.last_odom.pose.pose.position.y
-        self.get_logger().info(
-            f"Adjusting position to x: {new_odom.pose.pose.position.x}"
-        )
-        self.cmd_odom_publisher.publish(new_odom)
+        goal = Point()
+        goal.x = self.pose.pose.postiion.x + best_point[0] / 1000.0
+        goal.y = self.pose.pose.position.y
+        msg = Points()
+        msg.points = [goal]
+        self.goal_pub.publish(goal)
+        
         self.align_timer.cancel()
         self.transition_to_state(State.WAITING)
 
     def start_waiting(self):
-        """Start a timer to wait for the move to complete."""
         self.wait_start_time = self.get_clock().now()
         if self.wait_timer:
             self.wait_timer.cancel()
@@ -205,38 +182,7 @@ class DecisionsNode(Node):
             self.wait_timer.cancel()
             self.transition_to_state(State.IDLE)
 
-    # --- Circuit mode using the PID controlled locomotion system ---
-    def start_circuit(self):
-        """Begin circuit mode by sending the first goal to the locomotion system."""
-        self.current_circuit_index = 0
-        self.get_logger().info("Starting circuit mode.")
-        self.send_next_goal()
-
-    def send_next_goal(self):
-        """Send a position request for the next circuit target using the locomotion system's PID."""
-        if self.current_circuit_index >= len(self.circuit_path):
-            self.get_logger().info("Circuit complete.")
-            self.transition_to_state(State.IDLE)
-            return
-
-        target = self.circuit_path[self.current_circuit_index]
-        self.get_logger().info(f"Sending goal for point {self.current_circuit_index}: {target}")
-
-        goal = Odometry()
-        goal.header.stamp = self.get_clock().now().to_msg()
-        # goal.child_frame_id = self.last_odom.child_frame_id
-        goal.pose.pose.position.x = target[0]
-        goal.pose.pose.position.y = target[1]
-        # goal.pose.pose.position.z = 0.0
-
-        # goal.pose.pose.orientation.w = 1.0
-
-        self.get_logger().info(f"Goal: {goal.pose.pose.position.x}, {goal.pose.pose.position.y}")
-
-        self.cmd_odom_publisher.publish(goal)
-
     def get_boxes(self, save=False):
-        """Run inference and filter detected boxes based on confidence."""
         result = self.cv_model.run_inference(save=save)
         if result is None:
             return None
@@ -246,7 +192,6 @@ class DecisionsNode(Node):
         return result.boxes if len(result.boxes) > 0 else None
 
     def get_keypoints(self, save=False):
-        """Run inference and return valid keypoints after homography transformation."""
         result = self.cv_model.run_inference(save=save)
         if result is None or not result.keypoints:
             return None
@@ -265,16 +210,19 @@ class DecisionsNode(Node):
         return kp_list if kp_list else None
 
     def homography_transform(self, pixel):
-        """Transform a point from pixel to ground coordinates using homography."""
         pt = np.array([pixel[0], pixel[1], 1], dtype=np.float32)
         ground = np.dot(self.H, pt)
         ground /= ground[2]
         return ground[:2]
 
+    def send_removal_command(self, position):
+        msg = UInt8MultiArray()
+        msg.data = [0x01, (position >> 8) & 0xFF, position & 0xFF]
+        self.uart_publisher.publish(msg)
+
     def update_battery(self):
-        """Update battery voltage and flash LED ring accordingly."""
         try:
-            self.battery_voltage = self.uart.get_battery_voltage()
+            self.battery_voltage = 42.0 # TODO: fix
             self.get_logger().info(f"Battery voltage: {self.battery_voltage} V")
             if self.battery_voltage > 37.0:
                 self.led_ring.flash_color(0, 255, 0, 1.0)
@@ -300,33 +248,27 @@ class DecisionsNode(Node):
         elif command == "stop":
             self.transition_to_state(State.IDLE)
         elif command == "goal_reached":
-            if self.state == State.CIRCUIT:
-                # In circuit mode, move to the next point when a goal is reached.
-                self.current_circuit_index += 1
-                self.send_next_goal()
-            else:
-                self.transition_to_state(State.ALIGNING)
+            self.transition_to_state(State.ALIGNING)
+        elif command == "removal_complete":
+            self.transition_to_state(State.EXPLORING)
         elif command == "get_img":
             self.cv_model.capture_and_save_image()
-        elif command == "print_odom":
-            if self.last_odom:
-                pos = self.last_odom.pose.pose.position
-                orient = self.last_odom.pose.pose.orientation
+        elif command == "print_pose":
+            if self.pose:
+                pos = self.pose.pose.position
+                orient = self.pose.pose.orientation
                 self.get_logger().info(
                     f"(x, y, z_or): ({pos.x}, {pos.y}, {orient.z})"
                 )
             else:
-                self.get_logger().info("No odometry received yet.")
+                self.get_logger().info("No pose received yet.")
         elif command == "battery":
             self.update_battery()
-        elif command == "circuit":
-            self.transition_to_state(State.CIRCUIT)
         else:
             self.get_logger().error(f"'{command}' is not a valid command.")
 
-    def odom_callback(self, msg: Odometry):
-        """Store the last received odometry message."""
-        self.last_odom = msg
+    def pose_callback(self, msg):
+        self.pose = msg
 
     def destroy_node(self):
         self.cancel_all_timers()

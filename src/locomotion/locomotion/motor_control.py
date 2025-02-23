@@ -2,7 +2,7 @@
 
 from rpi_hardware_pwm import HardwarePWM
 import lgpio
-from utils.robot_params import wheel_radius, wheel_base, rated_speed, min_duty_cycle, motor_comp_factor
+from utils.robot_params import wheel_radius, wheel_base, rated_speed, min_duty_cycle, motor_comp_factor, max_linear_speed, max_angular_speed
 
 # Constants for motor direction control
 FORWARD = 0
@@ -40,16 +40,12 @@ class MotorController:
                 file.write("duty_left,duty_right\n")
 
     def set_velocity(self, linear_x, angular_z):
-        """
-        Sets motor speeds based on desired linear (m/s) and angular (rad/s) velocities.
-        Calculates individual wheel speeds, converts them to PWM duty cycles,
-        and sets the corresponding GPIO direction pins.
-        """
-        # Calculate wheel velocities (m/s)
+        linear_vel = max(-max_linear_speed, min(linear_vel, max_linear_speed))
+        angular_vel = max(-max_angular_speed, min(angular_vel, max_angular_speed))
+
         left_wheel_velocity = linear_x + (angular_z * self.wheel_base / 2)
         right_wheel_velocity = linear_x - (angular_z * self.wheel_base / 2)
 
-        # Convert wheel velocities to angular velocities (rad/s)
         left_wheel_ang_vel = left_wheel_velocity / self.wheel_radius
         right_wheel_ang_vel = right_wheel_velocity / self.wheel_radius
 
