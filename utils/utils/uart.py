@@ -13,7 +13,6 @@ class UARTNode(Node):
         super().__init__('uart_node')
 
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
-        self.ticks_timeout = 0.01  # seconds
         self.ack_timeout = 0.1     # seconds
         self.num_tick_timeouts = 0
 
@@ -39,7 +38,7 @@ class UARTNode(Node):
 
         self.get_logger().info("UART Initialized")
 
-    def bytes_callback(self, msg: UInt8MultiArray):
+    def bytes_callback(self, msg):
         data = bytes(msg.data)
         if not data:
             self.get_logger().warning("Received empty byte array.")
@@ -57,23 +56,23 @@ class UARTNode(Node):
         if len(byte_list) != 3:
             raise UARTError("Invalid command message length.")
         checksum = sum(byte_list) % 256
-        message = bytes(byte_list, checksum)
+        message = byte_list + bytes([checksum])
 
         for attempt in range(3):
             self.ser.write(message)
             if self.wait_for_acknowledgment():
-                break
+                return
             else:
                 self.nucleo_gpio.toggle_reset()
 
         raise UARTError("Timeout waiting for acknowledgment after 3 attempts.")
 
-    def wait_for_acknowledgment(self) -> bool:
+    def wait_for_acknowledgment(self):
         start_time = time.time()
         while (time.time() - start_time) < self.ack_timeout:
             if self.ser.in_waiting:
                 data = self.ser.read(self.ser.in_waiting)
-                if self.ack_byte in data:
+                if data and data[0] == self.ack_byte: 
                     return True
             time.sleep(0.05)
         return False

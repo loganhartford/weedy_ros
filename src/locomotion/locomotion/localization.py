@@ -60,7 +60,6 @@ class LocalizationNode(Node):
         # Clock for timestamping
         self.clock = Clock()
         self.last_time = self.clock.now()
-        self.test_time = time.time()
 
         # Setup logging if enabled
         if log:
@@ -80,8 +79,6 @@ class LocalizationNode(Node):
         self.last_imu = msg
 
     def ticks_callback(self, msg):
-        self.get_logger().info(f"Time: {time.time() - self.test_time}")
-        self.test_time = time.time()
         self.compute_odometry(msg.data[0], msg.data[1])
 
         self.pose.header.stamp = self.odom.header.stamp
@@ -166,7 +163,7 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info("Shutting down LocalizationNode.")
+        pass
     finally:
         node.destroy_node()
 
