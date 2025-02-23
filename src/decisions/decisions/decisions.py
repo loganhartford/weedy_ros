@@ -4,8 +4,7 @@ from enum import Enum, auto
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point
-from nav_msgs.msg import PoseStamped
+from geometry_msgs.msg import Twist, Point, PoseStamped
 from std_msgs.msg import String, UInt8MultiArray
 from custom_msgs.msg import Points
 
@@ -74,7 +73,7 @@ class DecisionsNode(Node):
         self.state = State.IDLE
 
         self.led_ring.set_color(255, 255, 255, 1.0)
-        self.get_logger().info("Decisions Node Initialized")
+        self.get_logger().info("Decisions Initialized")
 
     def cancel_all_timers(self):
         for attr in ("explore_timer", "align_timer", "wait_timer"):

@@ -1,8 +1,9 @@
 import math
 import time
 
+from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Int32MultiArray
-from nav_msgs.msg import Odometry, PoseStamped
+from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
 from rclpy.clock import Clock
 from rclpy.node import Node
@@ -53,12 +54,13 @@ class LocalizationNode(Node):
         self.odom.pose.pose.position.x = 0.0
         self.odom.pose.pose.position.y = 0.0
         self.odom.pose.pose.orientation.z = 0.0
-        self.odom.pose.pose.twist.linear.x = 0.0
-        self.odom.pose.pose.twist.angular.z = 0.0
+        self.odom.twist.twist.linear.x = 0.0
+        self.odom.twist.twist.angular.z = 0.0
 
         # Clock for timestamping
         self.clock = Clock()
         self.last_time = self.clock.now()
+        self.test_time = time.time()
 
         # Setup logging if enabled
         if log:
@@ -69,7 +71,7 @@ class LocalizationNode(Node):
             with open(self.pose_log, "w") as file:
                 file.write("Timestamp,X,Y,Z,Orientation_Z,Orientation_W\n")
 
-        self.get_logger().info("LocalizationNode initialized.")
+        self.get_logger().info("Localization Initialized")
     
     def fusion_callback(self, ticks_msg: Int32MultiArray, imu_msg: Imu):
         self.compute_odometry(ticks_msg.data[0], ticks_msg.data[1], ticks_msg.data[2])
@@ -78,18 +80,19 @@ class LocalizationNode(Node):
         self.last_imu = msg
 
     def ticks_callback(self, msg):
-        self.compute_odometry(msg.data[0], msg.data[1], msg.data[2])
+        self.get_logger().info(f"Time: {time.time() - self.test_time}")
+        self.test_time = time.time()
+        self.compute_odometry(msg.data[0], msg.data[1])
 
         self.pose.header.stamp = self.odom.header.stamp
         self.pose.pose = self.odom.pose.pose
         self.pose_pub.publish(self.pose)
 
-    def compute_odometry(self, ticks_left, ticks_right, stamp):
+    def compute_odometry(self, ticks_left, ticks_right):
         # On the first run, load values
         if self.last_ticks_left is None or self.last_ticks_right is None:
             self.last_ticks_left = ticks_left
             self.last_ticks_right = ticks_right
-            self.last_time = stamp
             return None
 
         # Define tick rollover limits (INT16)
@@ -107,9 +110,10 @@ class LocalizationNode(Node):
         self.last_ticks_right = ticks_right
 
         if log:
-            with open(self.log_file, "a") as file:
+            with open(self.ticks_log, "a") as file:
                 file.write(f"{ticks_left},{ticks_right}\n")
 
+        stamp = self.clock.now()
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9
         self.last_time = stamp
 
@@ -145,7 +149,7 @@ class LocalizationNode(Node):
         pos = pose.position
         orient = pose.orientation
         timestamp = Time.from_msg(self.odom.header.stamp).nanoseconds / 1e9
-        with open(self.log_file, "a") as file:
+        with open(self.pose_log, "a") as file:
             file.write(f"{timestamp},{pos.x},{pos.y},{pos.z},{orient.z},{orient.w}\n")
 
     def adjust_ticks(self, delta, max_ticks, min_ticks):

@@ -1,6 +1,5 @@
 import rclpy
 from rclpy.node import Node
-from rclpy.clock import Clock
 from std_msgs.msg import String, UInt8MultiArray, String, Int32MultiArray
 import serial
 import time
@@ -14,7 +13,6 @@ class UARTNode(Node):
         super().__init__('uart_node')
 
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
-        self.clock = Clock()
         self.ticks_timeout = 0.01  # seconds
         self.ack_timeout = 0.1     # seconds
         self.num_tick_timeouts = 0
@@ -27,16 +25,19 @@ class UARTNode(Node):
         )
 
         self.cmd_pub = self.create_publisher(String, '/cmd', 10)
-        self.ticks_pub = self.create_publisher(Int32MultiArray, '/ticks', 10)
-        self.create_timer(0.1, self.check_incoming_messages)
+        self.ticks_pub = self.create_publisher(Int32MultiArray, '/ticks', 1)
+        self.create_timer(0.01, self.check_incoming_messages)
 
         # Command and special byte definitions
         self.weed_removal_byte = 0x01
-        self.callback_byte = 0x02
+        self.ack_byte = 0x02
+        self.callback_byte = 0x03
         self.ticks_byte = 0xAE
         self.battery_byte = 0x11
 
         self.nucleo_gpio = NucleoGPIO() # For resetting the Nucleo
+
+        self.get_logger().info("UART Initialized")
 
     def bytes_callback(self, msg: UInt8MultiArray):
         data = bytes(msg.data)
@@ -51,7 +52,6 @@ class UARTNode(Node):
                 self.get_logger().error(f"UART Error during command processing: {e}")
         else:
             self.ser.write(data)
-            self.get_logger().info("Non-command bytes sent without waiting.")
 
     def send_weed_removal(self, byte_list):
         if len(byte_list) != 3:
@@ -70,19 +70,12 @@ class UARTNode(Node):
 
     def wait_for_acknowledgment(self) -> bool:
         start_time = time.time()
-        buffer = bytearray()
         while (time.time() - start_time) < self.ack_timeout:
-            data = self.ser.read(self.ser.in_waiting or 1)
-            if data:
-                buffer.extend(data)
-                # Process in chunks of 5 bytes
-                while len(buffer) >= 5:
-                    message = buffer[:5]
-                    if message[0] == 0x03:  # ACK message type
-                        return True
-                    buffer = buffer[5:]
-            else:
-                time.sleep(0.05)
+            if self.ser.in_waiting:
+                data = self.ser.read(self.ser.in_waiting)
+                if self.ack_byte in data:
+                    return True
+            time.sleep(0.05)
         return False
 
     def check_incoming_messages(self):
@@ -103,16 +96,14 @@ class UARTNode(Node):
                     ticks1 -= (1 << 16)
                 if ticks2 & (1 << 15):
                     ticks2 -= (1 << 16)
-                stamp = self.clock.now().nanoseconds
-
+                
                 ticks_msg = Int32MultiArray()
-                ticks_msg.data = [ticks1, ticks2, stamp]
+                ticks_msg.data = [ticks1, ticks2]
                 self.ticks_pub.publish(ticks_msg)
 
             elif buffer[0] == self.callback_byte:
                 cmd_msg = String(data="removal_complete")
                 self.cmd_pub.publish(cmd_msg)
-                self.get_logger().info("Published cmd: removed")
             else:
                 self.get_logger().warn("Received unknown message type: " + str(buffer))
 
@@ -122,7 +113,7 @@ def main(args=None):
     try:
         rclpy.spin(uart_node)
     except KeyboardInterrupt:
-        uart_node.get_logger().info("Keyboard interrupt, shutting down.")
+        pass
     finally:
         uart_node.destroy_node()
 

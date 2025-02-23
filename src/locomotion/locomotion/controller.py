@@ -2,13 +2,11 @@
 import rclpy
 from rclpy.node import Node
 
-from geometry_msgs.msg import Twist
-from nav_msgs.msg import PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import String
 from custom_msgs.msg import Points
 
 from locomotion.motor_control import MotorController
-from locomotion.localization import Localization
 from locomotion.pid import PID_ctrl
 from utils.utilities import calculate_pose_error
 from utils.robot_params import (
@@ -31,16 +29,17 @@ class ControllerNode(Node):
         self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.create_subscription(PoseStamped, '/pose', self.pose_callback, 1)
         self.create_subscription(Points, '/goal', self.goal_callback, 10)
-        self.create_subscription(String, '/cmd', self.cmd_callback, 10)
         self.cmd_publisher = self.create_publisher(String, '/cmd', 10)
 
         self.pose = None
-        self.vel_req = None
+        self.vel_req = Twist()
         self.goal = []
         self.alpha = 0.5  # LPF
+        self.last_linear_velocity = 0.0
+        self.last_angular_velocity = 0.0
+
 
         self.motor_controller = MotorController()
-        self.localization = Localization()
         self.linear_pid = PID_ctrl(
             klp, kld, kli,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/lin_pid_log.csv"
@@ -55,7 +54,7 @@ class ControllerNode(Node):
         self.linear_error_tolerance = pid_linear_error_tolerance
         self.angular_error_tolerance = 0.1  # rad (unused for now)
 
-        self.get_logger().info("Controller Init Complete")
+        self.get_logger().info("Controller Initialized")
        
     def control_loop(self):
         if self.pose is None:
