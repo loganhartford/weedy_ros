@@ -6,7 +6,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import String, UInt8MultiArray
 
 from utils.nucleo_gpio import NucleoGPIO
-from utils.robot_params import max_linear_speed, max_angular_speed, max_zero_angular_speed
+import utils.robot_params as rp
 
 # Fix for headless environments (SSH, no GUI)
 os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -24,16 +24,6 @@ class TeleopNode(Node):
         self.cmd_pub = self.create_publisher(String, '/cmd', 10)
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
-
-        self.left_byte = 0x7E
-        self.right_byte = 0x3F
-        self.up_byte = 0x5A
-        self.down_byte = 0x9A
-        self.drill_byte = 0x0F
-        self.stop_byte = 0x07
-
-        self.linear_speed = max_linear_speed
-        self.angular_speed = max_angular_speed
 
         self.last_linear = 0.0
         self.last_angular = 0.0
@@ -64,7 +54,7 @@ class TeleopNode(Node):
             elif event.type == pygame.JOYBUTTONDOWN:
                 self.handle_button_down(event)
             elif event.type == pygame.JOYBUTTONUP and event.button == 10:  # Button 10 - Drill release
-                self.send_manual_command(self.stop_byte)
+                self.send_manual_command(rp.stop_byte)
 
     def handle_axis_motion(self, event):
         twist = Twist()
@@ -73,14 +63,14 @@ class TeleopNode(Node):
         if event.axis in {2, 5}:  # Triggers
             value = self.joystick.get_axis(event.axis) + 1
             if event.axis == 2 and value > 0.5:
-                angular_z = -max_zero_angular_speed
+                angular_z = -rp.max_zero_angular_speed
             elif event.axis == 5 and value > 0.5:
-                angular_z = max_zero_angular_speed
+                angular_z = rp.max_zero_angular_speed
             else:
                 angular_z = 0.0
         else:  # Joystick movement (Left stick: linear, Right stick: angular)
-            linear_x = -self.joystick.get_axis(1) * self.linear_speed  # Left stick Y-axis (forward/backward)
-            angular_z = -self.joystick.get_axis(0) * self.angular_speed  # Left stick X-axis (rotation)
+            linear_x = -self.joystick.get_axis(1) * rp.max_linear_speed  # Left stick Y-axis (forward/backward)
+            angular_z = -self.joystick.get_axis(0) * rp.max_angular_speed  # Left stick X-axis (rotation)
 
         if abs(linear_x - self.last_linear) > 0.01 or abs(angular_z - self.last_angular) > 0.01:
             twist.linear.x, twist.angular.z = linear_x, angular_z
@@ -88,7 +78,7 @@ class TeleopNode(Node):
             self.last_linear, self.last_angular = linear_x, angular_z
 
     def handle_hat_motion(self, event):
-        direction = {(-1, 0): self.left_byte, (1, 0): self.right_byte, (0, 1): self.up_byte, (0, -1): self.down_byte}.get(event.value, self.stop_byte)
+        direction = {(-1, 0): rp.left_byte, (1, 0): rp.right_byte, (0, 1): rp.up_byte, (0, -1): rp.down_byte}.get(event.value, rp.stop_byte)
         self.send_manual_command(direction)
 
     def handle_button_down(self, event):
@@ -120,7 +110,7 @@ class TeleopNode(Node):
             twist.angular.z = -twist.linear.x / radius
             self.cmd_vel_pub.publish(twist)
         elif event.button == 10:  # Right Stick Press - Drill activation (uses manual_control)
-            self.send_manual_command(self.drill_byte)
+            self.send_manual_command(rp.drill_byte)
 
         if cmd.data:
             self.cmd_pub.publish(cmd)

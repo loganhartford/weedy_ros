@@ -12,8 +12,8 @@ from rclpy.qos import QoSProfile
 import rclpy
 import message_filters
 
-from utils.robot_params import wheel_radius, wheel_base, ticks_per_revolution, log
 from utils.utilities import normalize_angle
+import utils.robot_params as rp
 
 KALMAN_FILTER = False
 
@@ -37,11 +37,6 @@ class LocalizationNode(Node):
         self.last_ticks_left = None
         self.last_ticks_right = None
 
-        # Robot parameters
-        self.wheel_radius = wheel_radius
-        self.wheel_base = wheel_base
-        self.ticks_per_revolution = ticks_per_revolution
-
         self.pose = PoseStamped()
         self.pose.header.frame_id = "odom"
         self.pose.pose.position.x = 0.0
@@ -62,7 +57,7 @@ class LocalizationNode(Node):
         self.last_time = self.clock.now()
 
         # Setup logging if enabled
-        if log:
+        if rp.log:
             self.ticks_log = "/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ticks_log.csv"
             self.pose_log="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/pose_log.csv"
             with open(self.ticks_log, "w") as file:
@@ -106,7 +101,7 @@ class LocalizationNode(Node):
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
 
-        if log:
+        if rp.log:
             with open(self.ticks_log, "a") as file:
                 file.write(f"{ticks_left},{ticks_right}\n")
 
@@ -119,12 +114,12 @@ class LocalizationNode(Node):
         effective_delta_right = delta_right
 
         # Convert ticks to wheel displacements
-        d_left = (effective_delta_left / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
-        d_right = (effective_delta_right / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
+        d_left = (effective_delta_left / rp.ticks_per_revolution) * (2 * math.pi * rp.wheel_radius)
+        d_right = (effective_delta_right / rp.ticks_per_revolution) * (2 * math.pi * rp.wheel_radius)
 
         # Compute average displacement and heading change
         d = (d_left + d_right) / 2.0
-        delta_theta = (d_right - d_left) / self.wheel_base
+        delta_theta = (d_right - d_left) / rp.wheel_base
 
         # Compute velocities
         linear_velocity = d / delta_time
@@ -138,7 +133,7 @@ class LocalizationNode(Node):
         self.odom.twist.twist.linear.x = linear_velocity
         self.odom.twist.twist.angular.z = angular_velocity
 
-        if log:
+        if rp.log:
             self.log_odom()
 
     def log_odom(self):

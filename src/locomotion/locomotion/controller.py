@@ -9,13 +9,7 @@ from custom_msgs.msg import Points
 from locomotion.motor_control import MotorController
 from locomotion.pid import PID_ctrl
 from utils.utilities import calculate_pose_error
-from utils.robot_params import (
-    max_linear_speed,
-    max_angular_speed,
-    pid_linear_error_tolerance,
-    log,
-    max_zero_angular_speed,
-)
+import utils.robot_params as rp
 
 
 class ControllerNode(Node):
@@ -51,9 +45,6 @@ class ControllerNode(Node):
 
         self.control_timer = self.create_timer(0.01, self.control_loop)
 
-        self.linear_error_tolerance = pid_linear_error_tolerance
-        self.angular_error_tolerance = 0.1  # rad (unused for now)
-
         self.get_logger().info("Controller Initialized")
        
     def control_loop(self):
@@ -69,7 +60,7 @@ class ControllerNode(Node):
         linear_error, angular_error = calculate_pose_error(self.pose.pose, self.goal[-1])
 
         # If the goal is reached, reset control.
-        if linear_error < self.linear_error_tolerance and angular_error < self.angular_error_tolerance:
+        if linear_error < rp.pid_linear_error_tolerance and angular_error < rp.angular_error_tolerance:
             self.reset_control()
             self.get_logger().info("goal_reached")
             self.cmd_publisher.publish(String(data="goal_reached"))
@@ -93,9 +84,9 @@ class ControllerNode(Node):
         self.last_angular_velocity = smooth_angular_vel
 
         # Bound and round velocities.
-        smooth_linear_vel = max(-max_linear_speed, min(smooth_linear_vel, max_linear_speed))
-        if abs(smooth_angular_vel) > max_zero_angular_speed:
-            smooth_angular_vel = max(-max_angular_speed, min(smooth_angular_vel, max_angular_speed))
+        smooth_linear_vel = max(-rp.max_linear_speed, min(smooth_linear_vel, rp.max_linear_speed))
+        if abs(smooth_angular_vel) > rp.max_zero_angular_speed:
+            smooth_angular_vel = max(-rp.max_angular_speed, min(smooth_angular_vel, rp.max_angular_speed))
         smooth_linear_vel = round(smooth_linear_vel, 2)
         smooth_angular_vel = round(smooth_angular_vel, 2)
 

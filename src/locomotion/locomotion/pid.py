@@ -1,6 +1,6 @@
 from rclpy.time import Time
 
-from utils.robot_params import log
+import utils.robot_params as rp
 
 class PID_ctrl:
     
@@ -15,7 +15,7 @@ class PID_ctrl:
         self.ki = ki
 
         # Logging setup
-        if log:
+        if rp.log:
             self.log_file = log_file
             with open(self.log_file, "w") as file:
                 file.write("Timestamp,Error,P_Term,I_Term,D_Term,Control_Output\n")  # CSV Header
@@ -63,7 +63,7 @@ class PID_ctrl:
         # Compute total control output
         control_output = p_term + i_term + d_term
 
-        if log:
+        if rp.log:
             self.log_data(stamp, latest_error, p_term, i_term, d_term, control_output)
 
         return control_output

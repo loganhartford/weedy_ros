@@ -38,6 +38,7 @@ motor_comp_factor = 1.0
 # Feature Constraints
 # --------------------------
 pid_linear_error_tolerance = 0.005  # m
+angular_error_tolerance = 0.1       # rad
 y_axis_alignment_tolerance = 0.01   # m
 
 # --------------------------
@@ -96,3 +97,18 @@ ground_points = np.array([
 # Autonomous Mode Settings
 # --------------------------
 explore_linear_speed = 0.3  # m/s
+
+# --------------------------
+# UART Stuff
+# --------------------------
+weed_removal_byte = 0x01
+ack_byte = 0x02
+callback_byte = 0x03
+ticks_byte = 0xAE
+battery_byte = 0x11
+left_byte = 0x7E
+right_byte = 0x3F
+up_byte = 0x5A
+down_byte = 0x9A
+drill_byte = 0x0F
+stop_byte = 0x07

@@ -5,19 +5,13 @@ from enum import Enum, auto
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point, PoseStamped
-from std_msgs.msg import String, UInt8MultiArray
+from std_msgs.msg import Float32, String, UInt8MultiArray
 from custom_msgs.msg import Points
 
 from utils.nucleo_gpio import NucleoGPIO
 from utils.neopixel_ring import NeoPixelRing
 from decisions.yolo_model import YOLOModel
-from utils.robot_params import (
-    y_axis_max,
-    y_axis_alignment_tolerance,
-    pixel_points,
-    ground_points,
-    explore_linear_speed,
-)
+import utils.robot_params as rp
 
 class State(Enum):
     IDLE = auto()
@@ -31,6 +25,7 @@ class DecisionsNode(Node):
 
         self.create_subscription(String, "/cmd", self.cmd_callback, 10)
         self.create_subscription(PoseStamped, "/pose", self.pose_callback, 1)
+        self.create_subscription(Float32, "/battery", self.update_battery, 10)
         
         self.cmd_vel_publisher = self.create_publisher(Twist, "/cmd_vel", 10)
         self.goal_pub = self.create_publisher(Points, "/goal", 10)
@@ -45,11 +40,9 @@ class DecisionsNode(Node):
         self.box_conf_thresh = 0.5
 
         # Robot parameters
-        self.y_axis_alignment_tolerance = y_axis_alignment_tolerance
-        self.y_axis_max = y_axis_max
-        self.move_timeout = 5  # seconds
+        self.move_timeout = 5
         self.battery_voltage = None
-        self.update_battery()
+        self.request_battery_voltage()
 
         # Timers for existing states
         self.explore_timer = None
@@ -57,7 +50,7 @@ class DecisionsNode(Node):
         self.wait_timer = None
 
         # Compute homography matrix
-        self.H, status = cv2.findHomography(pixel_points, ground_points, cv2.RANSAC, 5.0)
+        self.H, status = cv2.findHomography(rp.pixel_points, rp.ground_points, cv2.RANSAC, 5.0)
         if self.H is not None:
             self.get_logger().info(f"Homography inliers: {status.ravel()}")
         else:
@@ -111,7 +104,7 @@ class DecisionsNode(Node):
         self.on_state_entry()
 
     def start_exploring(self):
-        self.publish_twist(explore_linear_speed, 0)
+        self.publish_twist(rp.explore_linear_speed, 0)
         if self.explore_timer:
             self.explore_timer.cancel()
         self.explore_timer = self.create_timer(0.1, self.explore_callback)
@@ -146,7 +139,7 @@ class DecisionsNode(Node):
         # Select keypoint with x-coordinate closest to zero
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
         # Check if aligned (convert mm to m)
-        if abs(best_point[0] / 1000.0) < self.y_axis_alignment_tolerance:
+        if abs(best_point[0] / 1000.0) < rp.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
             self.send_removal_command(best_point[1])
             self.align_timer.cancel()
@@ -203,7 +196,7 @@ class DecisionsNode(Node):
             for name, tensor in points:
                 kp_x, kp_y, kp_conf = tensor
                 kp_x, kp_y = self.homography_transform((kp_x, kp_y))
-                if kp_conf > self.kp_conf_thresh and 0.0 <= kp_y < self.y_axis_max:
+                if kp_conf > self.kp_conf_thresh and 0.0 <= kp_y < rp.y_axis_max:
                     kp_list.append([kp_x, kp_y])
                     break
         return kp_list if kp_list else None
@@ -216,12 +209,17 @@ class DecisionsNode(Node):
 
     def send_removal_command(self, position):
         msg = UInt8MultiArray()
-        msg.data = [0x01, (position >> 8) & 0xFF, position & 0xFF]
+        msg.data = [rp.weed, (position >> 8) & 0xFF, position & 0xFF]
         self.uart_publisher.publish(msg)
 
-    def update_battery(self):
+    def request_battery_voltage(self):
+        msg = UInt8MultiArray()
+        msg.data = [rp.battery_byte]
+        self.uart_publisher.publish(msg)
+
+    def update_battery(self, msg):
+        self.battery_voltage = msg.data
         try:
-            self.battery_voltage = 42.0 # TODO: fix
             self.get_logger().info(f"Battery voltage: {self.battery_voltage} V")
             if self.battery_voltage > 37.0:
                 self.led_ring.flash_color(0, 255, 0, 1.0)
@@ -233,14 +231,12 @@ class DecisionsNode(Node):
             self.get_logger().error(f"Error getting battery voltage: {e}")
 
     def publish_twist(self, linear, angular):
-        """Publish a Twist message to control robot movement."""
         msg = Twist()
         msg.linear.x = float(linear)
         msg.angular.z = float(angular)
         self.cmd_vel_publisher.publish(msg)
 
     def cmd_callback(self, msg: String):
-        """Handle incoming commands."""
         command = msg.data.lower()
         if command == "start":
             self.transition_to_state(State.EXPLORING)
@@ -262,7 +258,7 @@ class DecisionsNode(Node):
             else:
                 self.get_logger().info("No pose received yet.")
         elif command == "battery":
-            self.update_battery()
+            self.request_battery_voltage()
         else:
             self.get_logger().error(f"'{command}' is not a valid command.")
 
