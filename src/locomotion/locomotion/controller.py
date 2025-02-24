@@ -66,9 +66,8 @@ class ControllerNode(Node):
             self.cmd_publisher.publish(String(data="goal_reached"))
             return
 
-        stamp = self.pose.header.stamp.sec + self.pose.header.stamp.nanosec * 1e-9
-        linear_vel = self.linear_pid.update([linear_error, stamp])
-        angular_vel = self.angular_pid.update([angular_error, stamp])
+        linear_vel = self.linear_pid.update([linear_error, self.pose.header.stamp])
+        angular_vel = self.angular_pid.update([angular_error, self.pose.header.stamp])
 
         self.motor_controller.set_velocity(linear_vel, angular_vel)
         return
@@ -96,7 +95,7 @@ class ControllerNode(Node):
         self.vel_req = msg
 
     def goal_callback(self, msg):
-        self.goal = msg.data
+        self.goal = msg.points
 
     def pose_callback(self, msg):
         self.pose = msg

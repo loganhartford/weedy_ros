@@ -64,8 +64,7 @@ class DecisionsNode(Node):
             State.WAITING: [State.IDLE, State.EXPLORING, State.ALIGNING],
         }
         self.state = State.IDLE
-
-        self.led_ring.set_color(255, 255, 255, 1.0)
+        
         self.get_logger().info("Decisions Initialized")
 
     def cancel_all_timers(self):
@@ -80,6 +79,7 @@ class DecisionsNode(Node):
         if self.state == State.EXPLORING:
             self.start_exploring()
         elif self.state == State.IDLE:
+            self.led_ring.off()
             self.publish_twist(0, 0)
         elif self.state == State.ALIGNING:
             self.start_aligning()
@@ -104,6 +104,7 @@ class DecisionsNode(Node):
         self.on_state_entry()
 
     def start_exploring(self):
+        self.led_ring.set_color(255, 255, 255, 1.0)
         self.publish_twist(rp.explore_linear_speed, 0)
         if self.explore_timer:
             self.explore_timer.cancel()
@@ -121,6 +122,7 @@ class DecisionsNode(Node):
             self.transition_to_state(State.ALIGNING)
 
     def start_aligning(self):
+        self.led_ring.set_color(255, 255, 255, 1.0)
         self.publish_twist(0, 0)
         if self.align_timer:
             self.align_timer.cancel()
@@ -167,12 +169,8 @@ class DecisionsNode(Node):
             if self.wait_timer:
                 self.wait_timer.cancel()
             return
+        self.led_ring.step_animation()
 
-        elapsed = (self.get_clock().now() - self.wait_start_time).nanoseconds / 1e9
-        if elapsed > self.move_timeout:
-            self.get_logger().error("Timeout waiting for move.")
-            self.wait_timer.cancel()
-            self.transition_to_state(State.IDLE)
 
     def get_boxes(self, save=False):
         result = self.cv_model.run_inference(save=save)

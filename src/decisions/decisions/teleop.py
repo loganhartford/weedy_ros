@@ -37,9 +37,9 @@ class TeleopNode(Node):
             if pygame.joystick.get_count() > 0:
                 self.joystick = pygame.joystick.Joystick(0)
                 self.joystick.init()
-                self.get_logger().info(f"Joystick connected: {self.joystick.get_name()}")
+                self.get_logger().info(f"Remote connected: {self.joystick.get_name()}")
             else:
-                self.get_logger().warn("No joystick detected. Retrying...")
+                self.get_logger().warn("No remote detected. Retrying...")
 
     def timer_callback(self):
         if not self.joystick or not self.joystick.get_init():
@@ -91,7 +91,7 @@ class TeleopNode(Node):
             1: "battery",      # B button
             2: "get_img",      # X button
             3: "stop",         # Y button (Emergency stop)
-            4: "print_odom",   # LB button
+            4: "print_pose",   # LB button
         }
 
         if event.button in commands:
