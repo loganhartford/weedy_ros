@@ -19,6 +19,13 @@ def generate_launch_description():
         ),
         Node(
             package='locomotion',
+            executable='odometry',
+            name='odometry',
+            output='screen',
+            prefix='/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3',
+        ),
+        Node(
+            package='locomotion',
             executable='localization',
             name='localization',
             output='screen',
