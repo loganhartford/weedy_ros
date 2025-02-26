@@ -30,29 +30,33 @@ class BNO085IMU(Node):
         self.timer_period = 1.0 / self.frequency  # seconds
         self.timer = self.create_timer(self.timer_period, self.publish_imu_data)
 
+        self.get_logger().info("BNO085 IMU Initialized")
+
     def publish_imu_data(self):
         msg = Imu()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = self.frame_id
         
+        # NOTE: The BNO085 sensor is mounted in a different orientation than the ROS standard
+        #       so we need to swap the axes and invert the z-axis to match the ROS standard.
         try:
             # Read accelerometer data (m/s^2)
             accel_x, accel_y, accel_z = self.bno.acceleration
-            msg.linear_acceleration.x = accel_x
-            msg.linear_acceleration.y = accel_y
-            msg.linear_acceleration.z = accel_z
+            msg.linear_acceleration.x = accel_y
+            msg.linear_acceleration.y = accel_x
+            msg.linear_acceleration.z = -accel_z
 
             # Read gyroscope data (rad/s)
             gyro_x, gyro_y, gyro_z = self.bno.gyro
-            msg.angular_velocity.x = gyro_x
-            msg.angular_velocity.y = gyro_y
-            msg.angular_velocity.z = gyro_z
+            msg.angular_velocity.x = gyro_y
+            msg.angular_velocity.y = gyro_x
+            msg.angular_velocity.z = -gyro_z
 
             # Read quaternion rotation data
             quat_i, quat_j, quat_k, quat_real = self.bno.quaternion
-            msg.orientation.x = quat_i
-            msg.orientation.y = quat_j
-            msg.orientation.z = quat_k
+            msg.orientation.x = quat_j
+            msg.orientation.y = quat_i
+            msg.orientation.z = -quat_k
             msg.orientation.w = quat_real
             
         except Exception as e:
