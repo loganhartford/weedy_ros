@@ -39,15 +39,9 @@ class DecisionsNode(Node):
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5
 
-        # Robot parameters
         self.move_timeout = 5
         self.battery_voltage = None
         self.request_battery_voltage()
-
-        # Timers for existing states
-        self.explore_timer = None
-        self.align_timer = None
-        self.wait_timer = None
 
         # Compute homography matrix
         self.H, status = cv2.findHomography(rp.pixel_points, rp.ground_points, cv2.RANSAC, 5.0)
@@ -56,7 +50,11 @@ class DecisionsNode(Node):
         else:
             self.get_logger().error("Homography computation failed.")
 
-        # Allowed state transitions
+        # State timers
+        self.explore_timer = None
+        self.align_timer = None
+        self.wait_timer = None
+
         self.valid_transitions = {
             State.IDLE: [State.EXPLORING],
             State.EXPLORING: [State.IDLE, State.ALIGNING],
@@ -140,7 +138,6 @@ class DecisionsNode(Node):
 
         # Select keypoint with x-coordinate closest to zero
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
-        # Check if aligned (convert mm to m)
         if abs(best_point[0] / 1000.0) < rp.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
             self.send_removal_command(best_point[1])

@@ -5,16 +5,13 @@ import utils.robot_params as rp
 class PID_ctrl:
     
     def __init__(self, kp, kd, ki, history_length=10, log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/pid_log.csv"):
-        # Data for the controller
         self.history_length = history_length
         self.history = []
 
-        # Controller gains
         self.kp = kp
         self.kd = kd
         self.ki = ki
 
-        # Logging setup
         if rp.log:
             self.log_file = log_file
             with open(self.log_file, "w") as file:
@@ -55,12 +52,9 @@ class PID_ctrl:
         error_sum = sum(hist[0] for hist in self.history)
         error_int = error_sum * dt_avg
 
-        # Compute PID terms
         p_term = self.kp * latest_error
         i_term = self.ki * error_int
         d_term = self.kd * error_dot
-
-        # Compute total control output
         control_output = p_term + i_term + d_term
 
         if rp.log:

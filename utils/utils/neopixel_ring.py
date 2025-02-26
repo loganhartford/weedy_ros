@@ -26,33 +26,26 @@ class NeoPixelRing:
     def step_animation(self):
         num_pixels = 16
         brightness = 1.0
-        fade1 = 0.2  # 50% brightness for trailing pixels
-        fade2 = 0.1  # 20% brightness for further trailing pixels
+        fade1 = 0.2
+        fade2 = 0.1
         r, g, b = 255, 255, 0  # Yellow rotating pixel
 
         self.neo.clear_strip()
 
-        # Compute the main pixel positions
         idx1 = self.animation_index
-
-        # Compute the fading pixels
         trail1 = (self.animation_index - 1) % num_pixels
         trail2 = (self.animation_index - 2) % num_pixels
         lead1 = (self.animation_index + 1) % num_pixels
         lead2 = (self.animation_index + 2) % num_pixels
 
-        # Set pixel colors
         self.neo.set_led_color(idx1, int(r * brightness), int(g * brightness), int(b * brightness))
-        
         self.neo.set_led_color(trail1, int(r * fade1), int(g * fade1), int(b * fade1))
         self.neo.set_led_color(trail2, int(r * fade2), int(g * fade2), int(b * fade2))
         self.neo.set_led_color(lead1, int(r * fade1), int(g * fade1), int(b * fade1))
         self.neo.set_led_color(lead2, int(r * fade2), int(g * fade2), int(b * fade2))
 
-        # Update the LED ring
         self.neo.update_strip()
 
-        # Move to the next position
         self.animation_index = (self.animation_index + 1) % num_pixels
 
 

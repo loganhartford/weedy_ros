@@ -17,19 +17,14 @@ class UARTNode(Node):
         self.ack_timeout = 0.1     # seconds
         self.num_tick_timeouts = 0
 
-        self.subscription = self.create_subscription(
-            UInt8MultiArray,
-            '/send_uart',
-            self.bytes_callback,
-            10
-        )
+        self.subscription = self.create_subscription(UInt8MultiArray, '/send_uart', self.bytes_callback, 10)
 
         self.cmd_pub = self.create_publisher(String, '/cmd', 10)
         self.ticks_pub = self.create_publisher(Int32MultiArray, '/ticks', 1)
         self.battery_pub = self.create_publisher(Float32, '/battery', 1)
         self.create_timer(0.01, self.check_incoming_messages)
 
-        self.nucleo_gpio = NucleoGPIO() # For resetting the Nucleo
+        self.nucleo_gpio = NucleoGPIO()
 
         self.get_logger().info("UART Initialized")
 
@@ -48,7 +43,8 @@ class UARTNode(Node):
 
     def send_weed_removal(self, byte_list):
         if len(byte_list) != 3:
-            raise UARTError("Invalid command message length.")
+            self.get_logger().error("Invalid command message length.")
+            return
         checksum = sum(byte_list) % 256
         message = byte_list + bytes([checksum])
 
@@ -68,16 +64,19 @@ class UARTNode(Node):
         start_time = time.time()
         while len(buffer) < 4:
             if (time.time() - start_time) > self.ack_timeout:
-                raise UARTError("Timeout waiting for battery reply.")
+                self.get_logger().error("Timeout waiting for battery reply.")
+                return
             data = self.ser.read(self.ser.in_waiting or 1)
             if data:
                 buffer.extend(data)
 
         if buffer[0] != rp.battery_byte:
-            raise UARTError("Invalid start byte in battery reply.")
+            self.get_logger().error("Invalid start byte in battery reply.")
+            return
 
         if sum(buffer[:-1]) % 256 != buffer[-1]:
-            raise UARTError("Invalid battery checksum.")
+            self.get_logger().error("Invalid battery checksum.")
+            return
 
         int_part = buffer[1]
         decimal_part = buffer[2]

@@ -15,32 +15,22 @@ class BNO085IMU(Node):
     def __init__(self):
         super().__init__('bno085_imu_node')
         
-        # Declare parameters for flexibility
-        self.declare_parameter("publish_frequency", 50)
-        self.declare_parameter("frame_id", "imu_link")
+        self.imu_publisher = self.create_publisher(Imu, '/imu', 10)
         
-        # Retrieve parameter values
-        self.frequency = self.get_parameter("publish_frequency").value
-        self.frame_id = self.get_parameter("frame_id").value
+        self.frequency = 50
+        self.frame_id = "imu_link"
         
-        # Initialize I2C interface
         self.i2c = busio.I2C(board.SCL, board.SDA)
         self.bno = BNO08X_I2C(self.i2c)
 
-        # Enable features
         self.bno.enable_feature(BNO_REPORT_ACCELEROMETER)
         self.bno.enable_feature(BNO_REPORT_GYROSCOPE)
         self.bno.enable_feature(BNO_REPORT_ROTATION_VECTOR)
 
-        # Create an IMU publisher
-        self.imu_publisher = self.create_publisher(Imu, '/imu', 10)
-
-        # Set up a timer to publish data at the desired frequency
         self.timer_period = 1.0 / self.frequency  # seconds
         self.timer = self.create_timer(self.timer_period, self.publish_imu_data)
 
     def publish_imu_data(self):
-        """Read IMU data and publish as a ROS 2 Imu message."""
         msg = Imu()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = self.frame_id
@@ -73,8 +63,7 @@ class BNO085IMU(Node):
         msg.orientation_covariance = [-1.0] + [0.0] * 8
         msg.angular_velocity_covariance = [-1.0] + [0.0] * 8
         msg.linear_acceleration_covariance = [-1.0] + [0.0] * 8
-        
-        # Publish the IMU message
+
         self.imu_publisher.publish(msg)
 
 def main(args=None):
