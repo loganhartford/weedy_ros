@@ -101,8 +101,8 @@ explore_linear_speed = 0.3  # m/s
 # --------------------------
 # UART Stuff
 # --------------------------
-weed_removal_byte = 0x01
-ack_byte = 0x02
+weed_removal_byte = 0x87
+ack_byte = 0x43
 callback_byte = 0x03
 ticks_byte = 0xAE
 battery_byte = 0x11
