@@ -76,8 +76,8 @@ class OdometryNode(Node):
         self.last_time= stamp
 
         # Adjust tick sign (assumes left encoder counts down when moving forward)
-        effective_delta_left = -delta_left
-        effective_delta_right = delta_right
+        effective_delta_left = delta_left
+        effective_delta_right = -delta_right
 
         # Convert ticks to wheel displacements
         d_left = (effective_delta_left / rp.ticks_per_revolution) * (2 * math.pi * rp.wheel_radius)

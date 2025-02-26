@@ -9,18 +9,20 @@ def create_quaternion_from_yaw(yaw: float) -> Quaternion:
         w=cos(yaw / 2.0)
     )
 
-def calculate_pose_error(pose, goal):
-    """pose is PoseStamped.pose, goal is point msg"""
-    angular_error = atan2(goal.y - pose.position.y, goal.x - pose.position.x) - pose.orientation.z
-    angular_error = normalize_angle(angular_error)
-
-    linear_error = sqrt((goal.x - pose.position.x) ** 2 + (goal.y - pose.position.y) ** 2)
+def calculate_linear_error(pose, goal):
+    linear_error = sqrt((goal[0] - pose.position.x) ** 2 + (goal[1] - pose.position.y) ** 2)
 
     # Overshoot
-    if pose.position.x > goal.x:
+    if pose.position.x > goal[0]:
         linear_error = -linear_error
 
-    return linear_error, angular_error
+    return linear_error
+
+def calculate_angular_error(pose, goal):
+    angular_error = atan2(goal[1] - pose.position.y, goal[0] - pose.position.x) - pose.orientation.z
+    angular_error = normalize_angle(angular_error)
+
+    return angular_error
 
 def normalize_angle(angle):
     if angle <= -M_PI:

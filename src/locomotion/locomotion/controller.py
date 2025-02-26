@@ -1,14 +1,15 @@
 #!/mnt/shared/weedy_ros/src/locomotion/locomotion/pwm_venv/bin/python3
+import numpy as np
+
 import rclpy
 from rclpy.node import Node
-
 from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import String
 from custom_msgs.msg import Points
 
 from locomotion.motor_control import MotorController
 from locomotion.pid import PID_ctrl
-from utils.utilities import calculate_pose_error
+from utils.utilities import calculate_linear_error, calculate_angular_error
 import utils.robot_params as rp
 
 
@@ -27,7 +28,7 @@ class ControllerNode(Node):
 
         self.pose = None
         self.vel_req = Twist()
-        self.goal = []
+        self.goal_list = None
         self.alpha = 0.5  # LPF
         self.last_linear_velocity = 0.0
         self.last_angular_velocity = 0.0
@@ -51,16 +52,19 @@ class ControllerNode(Node):
         if self.pose is None:
             return
 
-        if self.goal == []:
+        if self.goal_list == None:
             self.open_loop_control()
         else:
             self.close_loop_control()
 
     def close_loop_control(self):
-        linear_error, angular_error = calculate_pose_error(self.pose.pose, self.goal[-1])
+        # Compute linear error to final goal and angular error to next goal.
+        linear_error = calculate_linear_error(self.pose.pose, self.goal_list[-1])
+        angular_error = calculate_angular_error(self.pose.pose, self.look_far_for(self.pose.pose, self.goal_list))
 
         # If the goal is reached, reset control.
-        if linear_error < rp.pid_linear_error_tolerance and angular_error < rp.angular_error_tolerance:
+        # if linear_error < rp.pid_linear_error_tolerance and angular_error < rp.angular_error_tolerance:
+        if linear_error < rp.pid_linear_error_tolerance:
             self.reset_control()
             self.get_logger().info("goal_reached")
             self.cmd_publisher.publish(String(data="goal_reached"))
@@ -91,11 +95,22 @@ class ControllerNode(Node):
 
         self.motor_controller.set_velocity(smooth_linear_vel, smooth_angular_vel)
 
+    def look_far_for(self, pose, goal_list):
+        pose_array=np.array([pose.position.x, pose.position.y]) 
+        goals_array=np.array([[goal[0], goal[1]] for goal in goal_list])
+
+        dist_squared=np.sum((goals_array-pose_array)**2, axis=1)
+        closest_index=np.argmin(dist_squared)
+
+        return goal_list[ min(closest_index + 1, len(goal_list) - 1) ]
+
     def cmd_vel_callback(self, msg):
         self.vel_req = msg
 
     def goal_callback(self, msg):
-        self.goal = msg.points
+        self.goal_list = msg.points
+
+        self.goal_list = [[self.goal_list[i].x, self.goal_list[i].y, self.goal_list[i].z] for i in range(len(self.goal_list))]
 
     def pose_callback(self, msg):
         self.pose = msg
@@ -103,7 +118,7 @@ class ControllerNode(Node):
     def reset_control(self):
         self.linear_pid.clear_history()
         self.angular_pid.clear_history()
-        self.goal = []
+        self.goal_list = None
         self.motor_controller.set_velocity(0, 0)
 
     def destroy_node(self):
