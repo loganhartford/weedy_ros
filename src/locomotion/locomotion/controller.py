@@ -29,10 +29,6 @@ class ControllerNode(Node):
         self.pose = None
         self.vel_req = Twist()
         self.goal_list = None
-        self.alpha = 0.5  # LPF
-        self.last_linear_velocity = 0.0
-        self.last_angular_velocity = 0.0
-
 
         self.motor_controller = MotorController()
         self.linear_pid = PID_ctrl(
@@ -77,23 +73,7 @@ class ControllerNode(Node):
         return
 
     def open_loop_control(self):
-        target_linear_vel = self.vel_req.linear.x
-        target_angular_vel = self.vel_req.angular.z
-
-        smooth_linear_vel = self.alpha * target_linear_vel + (1 - self.alpha) * self.last_linear_velocity
-        smooth_angular_vel = self.alpha * target_angular_vel + (1 - self.alpha) * self.last_angular_velocity
-
-        self.last_linear_velocity = smooth_linear_vel
-        self.last_angular_velocity = smooth_angular_vel
-
-        # Bound and round velocities.
-        smooth_linear_vel = max(-rp.max_linear_speed, min(smooth_linear_vel, rp.max_linear_speed))
-        if abs(smooth_angular_vel) > rp.max_zero_angular_speed:
-            smooth_angular_vel = max(-rp.max_angular_speed, min(smooth_angular_vel, rp.max_angular_speed))
-        smooth_linear_vel = round(smooth_linear_vel, 2)
-        smooth_angular_vel = round(smooth_angular_vel, 2)
-
-        self.motor_controller.set_velocity(smooth_linear_vel, smooth_angular_vel)
+        self.motor_controller.set_velocity(self.vel_req.linear.x, self.vel_req.angular.z, closed_loop=False)
 
     def look_far_for(self, pose, goal_list):
         pose_array=np.array([pose.position.x, pose.position.y]) 

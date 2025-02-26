@@ -27,7 +27,7 @@ class MotorController:
             with open(self.log_file, "w") as file:
                 file.write("duty_left,duty_right\n")
 
-    def set_velocity(self, linear_x, angular_z):
+    def set_velocity(self, linear_x, angular_z, closed_loop=True):
         linear_x = max(-rp.max_linear_speed, min(linear_x, rp.max_linear_speed))
         angular_z = max(-rp.max_angular_speed, min(angular_z, rp.max_angular_speed))
 
@@ -45,11 +45,12 @@ class MotorController:
         lgpio.gpio_write(self.chip, self.left_motordir, BACKWARD if left_wheel_velocity >= 0 else FORWARD)
         lgpio.gpio_write(self.chip, self.right_motordir, FORWARD if right_wheel_velocity >= 0 else BACKWARD)
 
-        # Overcome motor stiction
-        if left_duty > 0:
-            left_duty = max(left_duty, rp.min_duty_cycle)
-        if right_duty > 0:
-            right_duty = max(right_duty, rp.min_duty_cycle)
+        # To drive down the last bit of error without stopping from stiction
+        if closed_loop:
+            if left_duty > 0:
+                left_duty = max(left_duty, rp.min_duty_cycle)
+            if right_duty > 0:
+                right_duty = max(right_duty, rp.min_duty_cycle)
 
         if rp.log:
             with open(self.log_file, "a") as file:
