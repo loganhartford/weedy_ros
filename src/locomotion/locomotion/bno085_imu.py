@@ -1,15 +1,17 @@
-import time
 import board
 import busio
 import rclpy
-from rclpy.node import Node
-from sensor_msgs.msg import Imu
+import lgpio
+import time
 from adafruit_bno08x import (
     BNO_REPORT_ACCELEROMETER,
     BNO_REPORT_GYROSCOPE,
     BNO_REPORT_ROTATION_VECTOR
 )
 from adafruit_bno08x.i2c import BNO08X_I2C
+
+from rclpy.node import Node
+from sensor_msgs.msg import Imu
 
 class BNO085IMU(Node):
     def __init__(self):
@@ -19,18 +21,33 @@ class BNO085IMU(Node):
         
         self.frequency = 50
         self.frame_id = "imu_link"
-        
-        self.i2c = busio.I2C(board.SCL, board.SDA)
-        self.bno = BNO08X_I2C(self.i2c)
 
-        self.bno.enable_feature(BNO_REPORT_ACCELEROMETER)
-        self.bno.enable_feature(BNO_REPORT_GYROSCOPE)
-        self.bno.enable_feature(BNO_REPORT_ROTATION_VECTOR)
+        self.reset_pin = 23
+        self.chip = lgpio.gpiochip_open(0)
+        lgpio.gpio_claim_output(self.chip, self.reset_pin, level=1)
+        
+        self.bno = None
+        self.init_bno085()
 
         self.timer_period = 1.0 / self.frequency  # seconds
         self.timer = self.create_timer(self.timer_period, self.publish_imu_data)
 
         self.get_logger().info("BNO085 IMU Initialized")
+    
+    def init_bno085(self):
+        while self.bno is None:
+            try:
+                self.i2c = busio.I2C(board.SCL, board.SDA)
+                self.bno = BNO08X_I2C(self.i2c)
+
+                self.bno.enable_feature(BNO_REPORT_ACCELEROMETER)
+                self.bno.enable_feature(BNO_REPORT_GYROSCOPE)
+                self.bno.enable_feature(BNO_REPORT_ROTATION_VECTOR)
+            except Exception as e:
+                self.bno = None
+                self.get_logger().error(f"Error initializing BNO085 IMU: {e}")
+                self.reset()
+                time.sleep(1)
 
     def publish_imu_data(self):
         msg = Imu()
@@ -61,6 +78,7 @@ class BNO085IMU(Node):
             
         except Exception as e:
             self.get_logger().error(f"Error reading IMU data: {e}")
+            self.reset()
             return
         
         # Set covariance arrays (using -1 in the first element to indicate unknown covariance)
@@ -69,6 +87,12 @@ class BNO085IMU(Node):
         msg.linear_acceleration_covariance = [-1.0] + [0.0] * 8
 
         self.imu_publisher.publish(msg)
+    
+    def reset(self):
+        lgpio.gpio_write(self.chip, self.reset_pin, 0)
+        time.sleep(0.001)
+        lgpio.gpio_write(self.chip, self.reset_pin, 1)
+        time.sleep(0.001)
 
 def main(args=None):
     rclpy.init(args=args)
