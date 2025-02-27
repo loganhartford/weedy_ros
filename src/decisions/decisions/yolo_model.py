@@ -40,7 +40,7 @@ class YOLOModel:
             response = requests.get(self.image_url)
             response.raise_for_status()
             image = PILImage.open(BytesIO(response.content))
-            return np.array(image)[:, :, ::-1]  # Convert from RGB to BGR
+            return np.array(image)
         except requests.exceptions.RequestException as e:
             raise CameraError("Error fetching image from camera") from e
 

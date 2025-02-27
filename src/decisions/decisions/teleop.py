@@ -7,6 +7,7 @@ from std_msgs.msg import String, UInt8MultiArray
 
 from utils.nucleo_gpio import NucleoGPIO
 import utils.robot_params as rp
+from utils.utilities import package_removal_command
 
 # Fix for headless environments (SSH, no GUI)
 os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -101,7 +102,7 @@ class TeleopNode(Node):
                 twist.linear.x = 0.0
                 twist.angular.z = 0.0
         elif event.button == 5:  # RB button - Send UART command
-            self.send_removal_command(50)
+            self.uart_pub.publish(package_removal_command(50))
         elif event.button == 6:  # Back button (-) - Toggle GPIO reset
             self.toggle_nucleo_reset()
         elif event.button == 7:  # Start button (+) - Circle turn
@@ -119,11 +120,6 @@ class TeleopNode(Node):
     def send_manual_command(self, command):
         msg = UInt8MultiArray()
         msg.data = [command]
-        self.uart_pub.publish(msg)
-
-    def send_removal_command(self, position):
-        msg = UInt8MultiArray()
-        msg.data = [0x01, (position >> 8) & 0xFF, position & 0xFF]
         self.uart_pub.publish(msg)
 
     def toggle_nucleo_reset(self):

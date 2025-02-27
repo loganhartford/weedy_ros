@@ -8,7 +8,7 @@ from std_msgs.msg import String, Float32MultiArray
 
 from locomotion.motor_control import MotorController
 from locomotion.pid import PID_ctrl
-from utils.utilities import calculate_linear_error, calculate_angular_error
+from utils.utilities import calculate_linear_error, calculate_angular_error, float32_multi_array_to_two_d_array, calculate_positioning_error
 import utils.robot_params as rp
 
 
@@ -24,8 +24,8 @@ class ControllerNode(Node):
 
         self.vel_req = Twist()
         self.pose = None
-        self.path = None
-        self.new_position = None
+        self.path = []
+        self.new_position = []
 
         self.motor_controller = MotorController()
 
@@ -34,17 +34,17 @@ class ControllerNode(Node):
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/lin_pid_log.csv"
         )
         self.positioning_angular_pid = PID_ctrl(
-            kp=5.0, kd=0.0, ki=10.0,
+            kp=0.0, kd=0.0, ki=0.0,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ang_pid_log.csv"
         )
 
         self.path_linear_pid = PID_ctrl(
-            kp=0.0, kd=0.0, ki=0.0,
-            log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/lin_pid_log.csv"
+            kp=5.0, kd=0.0, ki=2.0,
+            log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/path_lin_pid_log.csv"
         )
         self.path_angular_pid = PID_ctrl(
-            kp=0.0, kd=0.0, ki=0.0,
-            log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ang_pid_log.csv"
+            kp=5.0, kd=0.0, ki=10.0,
+            log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/path_ang_pid_log.csv"
         )
 
         self.control_timer = self.create_timer(0.01, self.control_loop)
@@ -55,18 +55,18 @@ class ControllerNode(Node):
         if self.pose is None:
             return
 
-        if self.new_position is not None:
+        if self.new_position != []:
             self.closed_loop_positioning()
-        elif self.path is not None:
+        elif self.path != []:
             self.close_loop_path_following()
         else:
             self.open_loop_control()
 
     def closed_loop_positioning(self):
-        linear_error = calculate_linear_error(self.pose.pose, self.new_position[-1])
+        linear_error = calculate_positioning_error(self.pose.pose, self.new_position[-1])
         angular_error = calculate_angular_error(self.pose.pose, self.new_position[-1])
 
-        if linear_error < rp.pid_linear_pos_error_tolerance:
+        if abs(linear_error) < rp.pid_linear_pos_error_tolerance:
             self.reset_control()
             self.get_logger().info("new_pos_reached")
             self.cmd_publisher.publish(String(data="new_pos_reached"))
@@ -109,16 +109,10 @@ class ControllerNode(Node):
         self.vel_req = msg
 
     def position_callback(self, msg):
-        self.new_position = self.unpack_multi_array(msg)
+        self.new_position = float32_multi_array_to_two_d_array(msg)
     
     def path_callback(self, msg):
-        self.path = self.unpack_multi_array(msg)
-
-    def unpack_multi_array(self, msg):
-        rows = msg.layout.dim[0].size
-        cols = msg.layout.dim[1].size
-
-        return [msg.data[i * cols:(i + 1) * cols] for i in range(rows)]
+        self.path = float32_multi_array_to_two_d_array(msg)
 
     def pose_callback(self, msg):
         self.pose = msg
@@ -126,8 +120,8 @@ class ControllerNode(Node):
     def reset_control(self):
         self.positioning_linear_pid.clear_history()
         self.positioning_angular_pid.clear_history()
-        self.path = None
-        self.new_position = None
+        self.path = []
+        self.new_position = []
         self.motor_controller.set_velocity(0, 0)
 
     def destroy_node(self):

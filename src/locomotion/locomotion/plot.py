@@ -68,6 +68,8 @@ def plot_pose_data(df):
 def main():
     pid_log_file_path = "outputs/lin_pid_log.csv"
     pid_ang_log_file_path = "outputs/ang_pid_log.csv"
+    pid_pathLin_log_file_path = "outputs/path_lin_pid_log.csv"
+    pid_pathAng_log_file_path = "outputs/path_ang_pid_log.csv"
     pose_log_file_path = "outputs/odom_log.csv"
 
     pid_df = load_pid_log(pid_log_file_path)
@@ -75,6 +77,12 @@ def main():
 
     pid_ang_df = load_pid_log(pid_ang_log_file_path)
     plot_pid_data(pid_ang_df, "outputs/ang_pid_plot.png")
+
+    pid_pathLin_df = load_pid_log(pid_pathLin_log_file_path)
+    plot_pid_data(pid_pathLin_df, "outputs/path_lin_pid_plot.png")
+
+    pid_pathAng_df = load_pid_log(pid_pathAng_log_file_path)
+    plot_pid_data(pid_pathAng_df, "outputs/path_ang_pid_plot.png")
 
     pose_df = load_pose_log(pose_log_file_path)
     plot_pose_data(pose_df)

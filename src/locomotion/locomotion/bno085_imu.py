@@ -60,20 +60,20 @@ class BNO085IMU(Node):
             # Read accelerometer data (m/s^2)
             accel_x, accel_y, accel_z = self.bno.acceleration
             msg.linear_acceleration.x = accel_y
-            msg.linear_acceleration.y = accel_x
-            msg.linear_acceleration.z = -accel_z
+            msg.linear_acceleration.y = -accel_x
+            msg.linear_acceleration.z = accel_z
 
             # Read gyroscope data (rad/s)
             gyro_x, gyro_y, gyro_z = self.bno.gyro
             msg.angular_velocity.x = gyro_y
-            msg.angular_velocity.y = gyro_x
-            msg.angular_velocity.z = -gyro_z
+            msg.angular_velocity.y = -gyro_x
+            msg.angular_velocity.z = gyro_z
 
             # Read quaternion rotation data
             quat_i, quat_j, quat_k, quat_real = self.bno.quaternion
             msg.orientation.x = quat_j
-            msg.orientation.y = quat_i
-            msg.orientation.z = -quat_k
+            msg.orientation.y = -quat_i
+            msg.orientation.z = quat_k
             msg.orientation.w = quat_real
             
         except Exception as e:

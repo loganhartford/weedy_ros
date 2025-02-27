@@ -11,7 +11,9 @@ from std_msgs.msg import Float32, Float32MultiArray, MultiArrayLayout, MultiArra
 from utils.nucleo_gpio import NucleoGPIO
 from utils.neopixel_ring import NeoPixelRing
 from decisions.yolo_model import YOLOModel
+from decisions.planner import Planner
 import utils.robot_params as rp
+from utils.utilities import two_d_array_to_float32_multiarray, package_removal_command
 
 class State(Enum):
     IDLE = auto()
@@ -30,7 +32,7 @@ class DecisionsNode(Node):
         self.cmd_vel_publisher = self.create_publisher(Twist, "/cmd_vel", 10)
         self.path_pub = self.create_publisher(Float32MultiArray, "/path", 10)
         self.positioning_pub = self.create_publisher(Float32MultiArray, "/position", 10)
-        self.uart_publisher = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
+        self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
         self.pose = None
 
         # Hardware and utility components
@@ -39,6 +41,8 @@ class DecisionsNode(Node):
         self.cv_model = YOLOModel()
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5
+        self.planner = Planner()
+        self.path = None
 
         self.move_timeout = 5
         self.battery_voltage = None
@@ -55,6 +59,7 @@ class DecisionsNode(Node):
         self.explore_timer = None
         self.align_timer = None
         self.wait_timer = None
+        self.removal_in_process = False
 
         self.valid_transitions = {
             State.IDLE: [State.EXPLORING],
@@ -79,6 +84,8 @@ class DecisionsNode(Node):
             self.start_exploring()
         elif self.state == State.IDLE:
             self.led_ring.off()
+            self.path_pub.publish(Float32MultiArray())
+            self.positioning_pub.publish(Float32MultiArray())
             self.publish_twist(0, 0)
         elif self.state == State.ALIGNING:
             self.start_aligning()
@@ -104,7 +111,10 @@ class DecisionsNode(Node):
 
     def start_exploring(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
-        self.publish_twist(rp.explore_linear_speed, 0)
+
+        self.path = two_d_array_to_float32_multiarray(self.planner.plan())
+        self.path_pub.publish(self.path)
+
         if self.explore_timer:
             self.explore_timer.cancel()
         self.explore_timer = self.create_timer(0.1, self.explore_callback)
@@ -115,14 +125,16 @@ class DecisionsNode(Node):
                 self.explore_timer.cancel()
             return
 
-        boxes = self.get_boxes(save=True)
+        boxes = self.get_boxes()
         if boxes is not None:
             self.explore_timer.cancel()
             self.transition_to_state(State.ALIGNING)
 
     def start_aligning(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
-        self.publish_twist(0, 0)
+        
+        self.path_pub.publish(Float32MultiArray())
+
         if self.align_timer:
             self.align_timer.cancel()
         self.align_timer = self.create_timer(0.1, self.align_callback)
@@ -141,21 +153,15 @@ class DecisionsNode(Node):
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
         if abs(best_point[0] / 1000.0) < rp.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
-            self.send_removal_command(best_point[1])
+            self.uart_pub.publish(package_removal_command(best_point[1]))
             self.align_timer.cancel()
             self.transition_to_state(State.WAITING)
             return
 
-        new_position = Float32MultiArray()
-        x = self.pose.pose.postiion.x + best_point[0] / 1000.0
+        x = self.pose.pose.position.x + best_point[0] / 1000.0
         y = self.pose.pose.position.y
         z = self.pose.pose.orientation.z
-        array_2d = np.array([[x, y, z]], dtype=np.float32)
-        new_position.data = array_2d.flatten().tolist()
-
-        new_position.layout = MultiArrayLayout()
-        new_position.layout.dim.append(MultiArrayDimension(label="rows", size=array_2d.shape[0], stride=array_2d.shape[1]))
-        new_position.layout.dim.append(MultiArrayDimension(label="cols", size=array_2d.shape[1], stride=1))
+        new_position = two_d_array_to_float32_multiarray([[x, y, z]])
 
         self.positioning_pub.publish(new_position)
         
@@ -173,11 +179,13 @@ class DecisionsNode(Node):
             if self.wait_timer:
                 self.wait_timer.cancel()
             return
-        self.led_ring.step_animation()
+
+        if self.removal_in_process:
+            self.led_ring.step_animation()
 
 
-    def get_boxes(self, save=False):
-        result = self.cv_model.run_inference(save=save)
+    def get_boxes(self):
+        result = self.cv_model.run_inference()
         if result is None:
             return None
 
@@ -185,8 +193,8 @@ class DecisionsNode(Node):
         result.boxes = result.boxes[valid]
         return result.boxes if len(result.boxes) > 0 else None
 
-    def get_keypoints(self, save=False):
-        result = self.cv_model.run_inference(save=save)
+    def get_keypoints(self):
+        result = self.cv_model.run_inference()
         if result is None or not result.keypoints:
             return None
 
@@ -209,15 +217,10 @@ class DecisionsNode(Node):
         ground /= ground[2]
         return ground[:2]
 
-    def send_removal_command(self, position):
-        msg = UInt8MultiArray()
-        msg.data = [rp.weed, (position >> 8) & 0xFF, position & 0xFF]
-        self.uart_publisher.publish(msg)
-
     def request_battery_voltage(self):
         msg = UInt8MultiArray()
         msg.data = [rp.battery_byte]
-        self.uart_publisher.publish(msg)
+        self.uart_pub.publish(msg)
 
     def update_battery(self, msg):
         self.battery_voltage = msg.data
@@ -247,7 +250,7 @@ class DecisionsNode(Node):
         elif command == "new_pos_reached":
             self.transition_to_state(State.ALIGNING)
         elif command == "path_complete":
-            pass
+            self.transition_to_state(State.IDLE)
         elif command == "removal_complete":
             self.transition_to_state(State.EXPLORING)
         elif command == "get_img":

@@ -15,7 +15,8 @@ class UARTNode(Node):
 
         self.ser = serial.Serial('/dev/ttyAMA0', baudrate=115200, timeout=0.1)
         self.ack_timeout = 0.1     # seconds
-        self.num_tick_timeouts = 0
+        self.no_ticks_timeout = 0.5 # seconds
+        self.last_ticks_time = time.time()
 
         self.subscription = self.create_subscription(UInt8MultiArray, '/send_uart', self.bytes_callback, 10)
 
@@ -95,6 +96,12 @@ class UARTNode(Node):
         return False
 
     def check_incoming_messages(self):
+        # Ticks watchdog
+        if (time.time() - self.last_ticks_time) > self.no_ticks_timeout:
+            self.get_logger().error("No ticks, reseting nucelo.")
+            self.last_ticks_time = time.time()
+            self.nucleo_gpio.toggle_reset()
+
         if self.ser.in_waiting:
             buffer = self.ser.read(self.ser.in_waiting)
             
@@ -104,6 +111,8 @@ class UARTNode(Node):
                 if (sum(buffer[0:5]) % 256) != buffer[5]:
                     self.get_logger().error("Invalid tick checksum.")
                     return
+                
+                self.last_ticks_time = time.time()
 
                 # Parse tick values (handle signed 16-bit integers)
                 ticks1 = (buffer[1] << 8) | buffer[2]

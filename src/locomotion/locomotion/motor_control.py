@@ -23,7 +23,7 @@ class MotorController:
         lgpio.gpio_claim_output(self.chip, self.right_motordir)
 
         if rp.log:
-            self.log_file = "/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/duty_rp.log.csv"
+            self.log_file = "/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/duty_log.csv"
             with open(self.log_file, "w") as file:
                 file.write("duty_left,duty_right\n")
 
