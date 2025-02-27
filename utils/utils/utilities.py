@@ -12,10 +12,6 @@ def create_quaternion_from_yaw(yaw: float) -> Quaternion:
 def calculate_linear_error(pose, goal):
     linear_error = sqrt((goal[0] - pose.position.x) ** 2 + (goal[1] - pose.position.y) ** 2)
 
-    # Overshoot
-    if pose.position.x > goal[0]:
-        linear_error = -linear_error
-
     return linear_error
 
 def calculate_angular_error(pose, goal):

@@ -11,8 +11,8 @@ BACKWARD = 1
 
 class MotorController:
     def __init__(self):
-        self.left_motor = HardwarePWM(pwm_channel=1, hz=20000, chip=2)
-        self.right_motor = HardwarePWM(pwm_channel=0, hz=20000, chip=2)
+        self.left_motor = HardwarePWM(pwm_channel=0, hz=20000, chip=2)
+        self.right_motor = HardwarePWM(pwm_channel=1, hz=20000, chip=2)
         self.left_motor.start(0)
         self.right_motor.start(0)
 
@@ -31,8 +31,8 @@ class MotorController:
         linear_x = max(-rp.max_linear_speed, min(linear_x, rp.max_linear_speed))
         angular_z = max(-rp.max_angular_speed, min(angular_z, rp.max_angular_speed))
 
-        left_wheel_velocity = linear_x + (angular_z * rp.wheel_base / 2)
-        right_wheel_velocity = linear_x - (angular_z * rp.wheel_base / 2)
+        left_wheel_velocity = linear_x - (angular_z * rp.wheel_base / 2)
+        right_wheel_velocity = linear_x + (angular_z * rp.wheel_base / 2)
 
         left_wheel_ang_vel = left_wheel_velocity / rp.wheel_radius
         right_wheel_ang_vel = right_wheel_velocity / rp.wheel_radius
@@ -57,7 +57,7 @@ class MotorController:
                 file.write(f"{left_duty},{right_duty}\n")
 
         self.left_motor.change_duty_cycle(left_duty)
-        self.right_motor.change_duty_cycle(right_duty * rp.motor_comp_factor)
+        self.right_motor.change_duty_cycle(right_duty)
 
     def stop(self):
         self.left_motor.stop()

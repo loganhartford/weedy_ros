@@ -45,10 +45,10 @@ def plot_pose_data(df):
     plt.figure(figsize=(12, 8))
 
     plt.subplot(2, 1, 1)
-    plt.plot(df["X"], df["Y"], label="Trajectory", color="blue")
+    plt.plot(df["Y"], df["X"], label="Trajectory", color="blue")
     plt.title("Robot Trajectory (X vs. Y)")
-    plt.xlabel("X Position (m)")
-    plt.ylabel("Y Position (m)")
+    plt.xlabel("Y Position (m)")
+    plt.ylabel("X Position (m)")
     plt.grid()
     plt.legend()
 
@@ -68,7 +68,7 @@ def plot_pose_data(df):
 def main():
     pid_log_file_path = "outputs/lin_pid_log.csv"
     pid_ang_log_file_path = "outputs/ang_pid_log.csv"
-    pose_log_file_path = "outputs/pose_log.csv"
+    pose_log_file_path = "outputs/odom_log.csv"
 
     pid_df = load_pid_log(pid_log_file_path)
     plot_pid_data(pid_df, "outputs/lin_pid_plot.png")

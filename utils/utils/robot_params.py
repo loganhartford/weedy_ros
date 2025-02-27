@@ -18,7 +18,7 @@ rpm = 230                               # Rated speed
 rated_speed = rpm * 2 * math.pi / 60.0  # rad/s
 max_linear_speed = 0.3                  # m/s (~1 km/h)
 # max_linear_speed = 1.2                  # m/s (~1 km/h)
-max_angular_speed = 0.3                 # rad/s
+max_angular_speed = 0.6                 # rad/s
 max_zero_angular_speed = 3.0            # For high torque turns
 
 # --------------------------
@@ -30,9 +30,6 @@ ticks_per_revolution = 3456     # Ticks per wheel revolution
 # Motor Control Parameters
 # --------------------------
 min_duty_cycle = 9
-max_motor_linear_speed = 2 * math.pi * wheel_radius * 230 / 60 - 0.5        # m/s, with 0.5 safety factor
-min_motor_linear_speed = 2 * math.pi * wheel_radius * (3 / 100) * 230 / 60  # m/s
-motor_comp_factor = 1.0
 
 # --------------------------
 # Feature Constraints

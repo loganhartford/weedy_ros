@@ -17,7 +17,7 @@ class ControllerNode(Node):
     def __init__(
         self,
         klp=5.0, kld=0.0, kli=2.0,
-        kap=1.2, kad=0.0, kai=1.0,
+        kap=5.0, kad=0.0, kai=10.0,
     ):
         super().__init__('controller')
 
@@ -68,6 +68,9 @@ class ControllerNode(Node):
 
         linear_vel = self.linear_pid.update([linear_error, self.pose.header.stamp])
         angular_vel = self.angular_pid.update([angular_error, self.pose.header.stamp])
+
+        self.get_logger().info(f"Angular Error: {angular_error}, Angular Vel: {angular_vel}")
+        self.get_logger().info(f"X: {self.pose.pose.position.x}, Y: {self.pose.pose.position.y}, Z: {self.pose.pose.orientation.z}")
 
         self.motor_controller.set_velocity(linear_vel, angular_vel)
         return
