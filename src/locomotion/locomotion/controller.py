@@ -4,8 +4,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseStamped
-from std_msgs.msg import String
-from custom_msgs.msg import Points
+from std_msgs.msg import String, Float32MultiArray
 
 from locomotion.motor_control import MotorController
 from locomotion.pid import PID_ctrl
@@ -14,29 +13,37 @@ import utils.robot_params as rp
 
 
 class ControllerNode(Node):
-    def __init__(
-        self,
-        klp=5.0, kld=0.0, kli=2.0,
-        kap=5.0, kad=0.0, kai=10.0,
-    ):
+    def __init__(self):
         super().__init__('controller')
 
         self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.create_subscription(PoseStamped, '/pose', self.pose_callback, 1)
-        self.create_subscription(Points, '/goal', self.goal_callback, 10)
+        self.create_subscription(Float32MultiArray, '/path', self.path_callback, 10)
+        self.create_subscription(Float32MultiArray, '/position', self.position_callback, 10)
         self.cmd_publisher = self.create_publisher(String, '/cmd', 10)
 
-        self.pose = None
         self.vel_req = Twist()
-        self.goal_list = None
+        self.pose = None
+        self.path = None
+        self.new_position = None
 
         self.motor_controller = MotorController()
-        self.linear_pid = PID_ctrl(
-            klp, kld, kli,
+
+        self.positioning_linear_pid = PID_ctrl(
+            kp=5.0, kd=0.0, ki=2.0,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/lin_pid_log.csv"
         )
-        self.angular_pid = PID_ctrl(
-            kap, kad, kai,
+        self.positioning_angular_pid = PID_ctrl(
+            kp=5.0, kd=0.0, ki=10.0,
+            log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ang_pid_log.csv"
+        )
+
+        self.path_linear_pid = PID_ctrl(
+            kp=0.0, kd=0.0, ki=0.0,
+            log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/lin_pid_log.csv"
+        )
+        self.path_angular_pid = PID_ctrl(
+            kp=0.0, kd=0.0, ki=0.0,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ang_pid_log.csv"
         )
 
@@ -48,60 +55,79 @@ class ControllerNode(Node):
         if self.pose is None:
             return
 
-        if self.goal_list == None:
-            self.open_loop_control()
+        if self.new_position is not None:
+            self.closed_loop_positioning()
+        elif self.path is not None:
+            self.close_loop_path_following()
         else:
-            self.close_loop_control()
+            self.open_loop_control()
 
-    def close_loop_control(self):
-        # Compute linear error to final goal and angular error to next goal.
-        linear_error = calculate_linear_error(self.pose.pose, self.goal_list[-1])
-        angular_error = calculate_angular_error(self.pose.pose, self.look_far_for(self.pose.pose, self.goal_list))
+    def closed_loop_positioning(self):
+        linear_error = calculate_linear_error(self.pose.pose, self.new_position[-1])
+        angular_error = calculate_angular_error(self.pose.pose, self.new_position[-1])
 
-        # If the goal is reached, reset control.
-        # if linear_error < rp.pid_linear_error_tolerance and angular_error < rp.angular_error_tolerance:
-        if linear_error < rp.pid_linear_error_tolerance:
+        if linear_error < rp.pid_linear_pos_error_tolerance:
             self.reset_control()
-            self.get_logger().info("goal_reached")
-            self.cmd_publisher.publish(String(data="goal_reached"))
+            self.get_logger().info("new_pos_reached")
+            self.cmd_publisher.publish(String(data="new_pos_reached"))
             return
 
-        linear_vel = self.linear_pid.update([linear_error, self.pose.header.stamp])
-        angular_vel = self.angular_pid.update([angular_error, self.pose.header.stamp])
-
-        self.get_logger().info(f"Angular Error: {angular_error}, Angular Vel: {angular_vel}")
-        self.get_logger().info(f"X: {self.pose.pose.position.x}, Y: {self.pose.pose.position.y}, Z: {self.pose.pose.orientation.z}")
+        linear_vel = self.positioning_linear_pid.update([linear_error, self.pose.header.stamp])
+        angular_vel = self.positioning_angular_pid.update([angular_error, self.pose.header.stamp])
 
         self.motor_controller.set_velocity(linear_vel, angular_vel)
-        return
+
+    def close_loop_path_following(self):
+        # Compute linear error to final goal and angular error to next goal.
+        linear_error = calculate_linear_error(self.pose.pose, self.path[-1])
+        angular_error = calculate_angular_error(self.pose.pose, self.look_far_for(self.pose.pose, self.path))
+        
+        if linear_error < rp.pid_linear_path_error_tolerance:
+            self.reset_control()
+            self.get_logger().info("path_complete")
+            self.cmd_publisher.publish(String(data="path_complete"))
+            return
+
+        linear_vel = self.path_linear_pid.update([linear_error, self.pose.header.stamp])
+        angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
+        
+        self.motor_controller.set_velocity(linear_vel, angular_vel)
 
     def open_loop_control(self):
         self.motor_controller.set_velocity(self.vel_req.linear.x, self.vel_req.angular.z, closed_loop=False)
 
-    def look_far_for(self, pose, goal_list):
+    def look_far_for(self, pose, path):
         pose_array=np.array([pose.position.x, pose.position.y]) 
-        goals_array=np.array([[goal[0], goal[1]] for goal in goal_list])
+        goals_array=np.array([[goal[0], goal[1]] for goal in path])
 
         dist_squared=np.sum((goals_array-pose_array)**2, axis=1)
         closest_index=np.argmin(dist_squared)
 
-        return goal_list[ min(closest_index + 1, len(goal_list) - 1) ]
+        return path[ min(closest_index + 1, len(path) - 1) ]
 
     def cmd_vel_callback(self, msg):
         self.vel_req = msg
 
-    def goal_callback(self, msg):
-        self.goal_list = msg.points
+    def position_callback(self, msg):
+        self.new_position = self.unpack_multi_array(msg)
+    
+    def path_callback(self, msg):
+        self.path = self.unpack_multi_array(msg)
 
-        self.goal_list = [[self.goal_list[i].x, self.goal_list[i].y, self.goal_list[i].z] for i in range(len(self.goal_list))]
+    def unpack_multi_array(self, msg):
+        rows = msg.layout.dim[0].size
+        cols = msg.layout.dim[1].size
+
+        return [msg.data[i * cols:(i + 1) * cols] for i in range(rows)]
 
     def pose_callback(self, msg):
         self.pose = msg
 
     def reset_control(self):
-        self.linear_pid.clear_history()
-        self.angular_pid.clear_history()
-        self.goal_list = None
+        self.positioning_linear_pid.clear_history()
+        self.positioning_angular_pid.clear_history()
+        self.path = None
+        self.new_position = None
         self.motor_controller.set_velocity(0, 0)
 
     def destroy_node(self):

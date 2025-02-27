@@ -5,8 +5,8 @@ from enum import Enum, auto
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, Point, PoseStamped
-from std_msgs.msg import Float32, String, UInt8MultiArray
-from custom_msgs.msg import Points
+from std_msgs.msg import Float32, Float32MultiArray, MultiArrayLayout, MultiArrayDimension, String, UInt8MultiArray
+
 
 from utils.nucleo_gpio import NucleoGPIO
 from utils.neopixel_ring import NeoPixelRing
@@ -28,7 +28,8 @@ class DecisionsNode(Node):
         self.create_subscription(Float32, "/battery", self.update_battery, 10)
         
         self.cmd_vel_publisher = self.create_publisher(Twist, "/cmd_vel", 10)
-        self.goal_pub = self.create_publisher(Points, "/goal", 10)
+        self.path_pub = self.create_publisher(Float32MultiArray, "/path", 10)
+        self.positioning_pub = self.create_publisher(Float32MultiArray, "/position", 10)
         self.uart_publisher = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
         self.pose = None
 
@@ -145,12 +146,18 @@ class DecisionsNode(Node):
             self.transition_to_state(State.WAITING)
             return
 
-        goal = Point()
-        goal.x = self.pose.pose.postiion.x + best_point[0] / 1000.0
-        goal.y = self.pose.pose.position.y
-        msg = Points()
-        msg.points = [goal]
-        self.goal_pub.publish(goal)
+        new_position = Float32MultiArray()
+        x = self.pose.pose.postiion.x + best_point[0] / 1000.0
+        y = self.pose.pose.position.y
+        z = self.pose.pose.orientation.z
+        array_2d = np.array([[x, y, z]], dtype=np.float32)
+        new_position.data = array_2d.flatten().tolist()
+
+        new_position.layout = MultiArrayLayout()
+        new_position.layout.dim.append(MultiArrayDimension(label="rows", size=array_2d.shape[0], stride=array_2d.shape[1]))
+        new_position.layout.dim.append(MultiArrayDimension(label="cols", size=array_2d.shape[1], stride=1))
+
+        self.positioning_pub.publish(new_position)
         
         self.align_timer.cancel()
         self.transition_to_state(State.WAITING)
@@ -237,8 +244,10 @@ class DecisionsNode(Node):
             self.transition_to_state(State.EXPLORING)
         elif command == "stop":
             self.transition_to_state(State.IDLE)
-        elif command == "goal_reached":
+        elif command == "new_pos_reached":
             self.transition_to_state(State.ALIGNING)
+        elif command == "path_complete":
+            pass
         elif command == "removal_complete":
             self.transition_to_state(State.EXPLORING)
         elif command == "get_img":
