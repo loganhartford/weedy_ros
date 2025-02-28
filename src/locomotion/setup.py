@@ -21,6 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             f'controller = {package_name}.controller:main',
+            f'localization = {package_name}.localization:main',
+            f'odometry = {package_name}.odometry:main',
             f'bno085_imu = {package_name}.bno085_imu:main',
         ],
     },

@@ -1,1 +1,1 @@
-geometry_msgs/Point[] points
+std_msgs/Float32MultiArray[] data

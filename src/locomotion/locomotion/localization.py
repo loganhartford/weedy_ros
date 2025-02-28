@@ -1,140 +1,107 @@
-from nav_msgs.msg import Odometry
-from rclpy.clock import Clock
 import math
+import numpy as np
 
-from utils.robot_params import wheel_radius, wheel_base, ticks_per_revolution, log
-from utils.uart import UART
+from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import Int32MultiArray
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Imu
+from rclpy.clock import Clock
+from rclpy.node import Node
+from rclpy.time import Time
+from rclpy.qos import QoSProfile
+import rclpy
+import message_filters
 
+from utils.utilities import normalize_angle
+import utils.robot_params as rp
+from locomotion.kalman_filter import KalmanFilter
 
-class Localization:
-    """
-    Odometry estimation for a four-wheeled robot with front-wheel drive.
-    The front wheels are driven, and back wheels are passive.
-    This class computes the robot's pose from encoder ticks obtained via UART.
-    """
+KALMAN_FILTER = False
 
+class LocalizationNode(Node):
     def __init__(self):
-        # Robot parameters
-        self.wheel_radius = wheel_radius
-        self.wheel_base = wheel_base
-        self.ticks_per_revolution = ticks_per_revolution
+        super().__init__('localization_node')
 
-        # Initial pose (meters, radians)
-        self.x = 0.0
-        self.y = 0.0
-        self.theta = 0.0
-        self.last_ticks_left = None
-        self.last_ticks_right = None
+        self.pose_pub = self.create_publisher(PoseStamped, '/pose', 10)
 
-        # Clock and last time stamp for delta time computation
+        if KALMAN_FILTER:
+            qos=QoSProfile(reliability=2, durability=2, history=1, depth=10)
+            self.imu_sub=message_filters.Subscriber(self, Imu, "/imu", qos_profile=qos)
+            self.ticks_sub=message_filters.Subscriber(self, Odometry, "/odom", qos_profile=qos)
+            time_syncher=message_filters.ApproximateTimeSynchronizer([self.ticks_sub, self.imu_sub], queue_size=10, slop=0.1)
+            time_syncher.registerCallback(self.fusion_callback)
+        else:
+            self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 1)
+            self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 1)
+        
+        self.last_imu = None
+
+        self.pose = PoseStamped()
+        self.pose.header.frame_id = "odom"
+        self.pose.pose.position.x = 0.0
+        self.pose.pose.position.y = 0.0
+        self.pose.pose.orientation.z = 0.0
+
+        self.kf = None
+
         self.clock = Clock()
         self.last_time = self.clock.now()
 
-        # UART interface to get encoder ticks
-        self.uart = UART()
+        self.get_logger().info("Localization Initialized")
+    
+    def imu_callback(self, msg: Imu):
+        self.last_imu = msg
 
-        # Setup tick logging if enabled
-        if log:
-            self.log_file = "/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ticks_log.csv"
-            with open(self.log_file, "w") as file:
-                file.write("ticks_left,ticks_right\n")
+    def odom_callback(self, msg):
+        self.pose.header.stamp = msg.header.stamp
+        self.pose.pose = msg.pose.pose
+        self.pose_pub.publish(self.pose)
 
-    def _adjust_ticks(self, delta, max_ticks, min_ticks):
-        """
-        Adjusts tick difference for rollover.
-        """
-        if delta > max_ticks / 2:
-            return delta - (max_ticks - min_ticks + 1)
-        elif delta < min_ticks / 2:
-            return delta + (max_ticks - min_ticks + 1)
-        return delta
+    def fusion_callback(self, odom_msg: Odometry, imu_msg: Imu):
+        if self.kf == None:
+            x = np.array([  odom_msg.pose.pose.position.x,
+                            odom_msg.pose.pose.position.y,
+                            odom_msg.pose.pose.orientation.z,
+                            0,
+                            0,
+                            0])        
 
-    def update_odometry(self):
-        """
-        Retrieves new encoder ticks, computes the change in pose (x, y, theta),
-        and returns a ROS Odometry message containing the updated state.
-        """
-        try:
-            ticks_left, ticks_right, stamp = self.uart.get_ticks()
-        except Exception as e:
-            raise e
-
-        # On the first run, initialize previous tick values and timestamp.
-        if self.last_ticks_left is None or self.last_ticks_right is None:
-            self.last_ticks_left = ticks_left
-            self.last_ticks_right = ticks_right
-            self.last_time = stamp
-            return None
-
-        # Define tick rollover limits.
-        max_ticks = 2**15 - 1
-        min_ticks = -2**15
-
-        # Compute raw differences in ticks.
-        delta_left = ticks_left - self.last_ticks_left
-        delta_right = ticks_right - self.last_ticks_right
-
-        # Adjust for rollover.
-        delta_left = self._adjust_ticks(delta_left, max_ticks, min_ticks)
-        delta_right = self._adjust_ticks(delta_right, max_ticks, min_ticks)
-
-        self.last_ticks_left = ticks_left
-        self.last_ticks_right = ticks_right
-
-        if log:
-            with open(self.log_file, "a") as file:
-                file.write(f"{ticks_left},{ticks_right}\n")
-
-        # Compute time elapsed
+            Q=0.2*np.eye(6)
+            R=0.5*np.eye(4)
+            P=Q.copy()
+            
+            self.kf=KalmanFilter(P, Q, R, x)
+        
+        stamp = self.clock.now()
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9
-        self.last_time = stamp
+        self.last_time= stamp
 
-        # Invert left tick delta (assumes left encoder counts down when moving forward).
-        effective_delta_left = -delta_left
-        effective_delta_right = delta_right
+        z=np.array([odom_msg.twist.twist.linear.x,
+                    odom_msg.twist.twist.angular.z,
+                    imu_msg.linear_acceleration.x,
+                    imu_msg.linear_acceleration.y])
+        self.kf.predict(delta_time)
+        self.kf.update(z)
+        
+        xhat=self.kf.get_states()
+        
+        self.pose.pose.position.x = xhat[0]
+        self.pose.pose.position.y = xhat[1]
+        self.pose.pose.orientation.z = xhat[2]
+        self.pose.header.stamp = stamp
+        self.pose_pub.publish(self.pose)
 
-        # Compute wheel displacements.
-        d_left = (effective_delta_left / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
-        d_right = (effective_delta_right / self.ticks_per_revolution) * (2 * math.pi * self.wheel_radius)
 
-        # Average linear displacement and change in heading.
-        d = (d_left + d_right) / 2.0
-        delta_theta = (d_right - d_left) / self.wheel_base
+def main(args=None):
+    rclpy.init(args=args)
+    node = LocalizationNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
 
-        # Update pose using midpoint integration.
-        self.x += d * math.cos(self.theta + delta_theta / 2.0)
-        self.y += d * math.sin(self.theta + delta_theta / 2.0)
-        self.theta += delta_theta
 
-        # Normalize theta to the range [-pi, pi].
-        self.theta = (self.theta + math.pi) % (2 * math.pi) - math.pi
-
-        # Compute velocities.
-        linear_velocity = d / delta_time
-        angular_velocity = delta_theta / delta_time
-
-        # Create and populate the Odometry message.
-        odom_msg = Odometry()
-        odom_msg.header.stamp = stamp.to_msg()
-        odom_msg.header.frame_id = "odom"
-        odom_msg.child_frame_id = "base_link"
-
-        # Pose (storing yaw in orientation.z for debugging; typically use a quaternion).
-        odom_msg.pose.pose.position.x = self.x
-        odom_msg.pose.pose.position.y = self.y
-        odom_msg.pose.pose.orientation.z = self.theta
-
-        # Twist
-        odom_msg.twist.twist.linear.x = linear_velocity
-        odom_msg.twist.twist.angular.z = angular_velocity
-
-        return odom_msg
-
-    def reset_odometry(self):
-        """
-        Resets the estimated pose to zero and returns the updated odometry.
-        """
-        self.x = 0.0
-        self.y = 0.0
-        self.theta = 0.0
-        return self.update_odometry()
+if __name__ == '__main__':
+    main()

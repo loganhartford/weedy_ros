@@ -10,29 +10,12 @@ from utils.exceptions import ModelError, CameraError
 
 
 class YOLOModel:
-    """
-    Wrapper for the YOLO model to perform inference and handle image capture.
-    """
-
     def __init__(self):
-        # Initialize YOLO model and camera URL
         self.model_path = "/mnt/shared/weedy_ros/src/decisions/decisions/models/indoor_all_ncnn_model"
         self.model = YOLO(self.model_path, task="pose", verbose=False)
         self.image_url = "http://localhost:8000"
 
     def run_inference(self, save_data=True, save_result=False):
-        """
-        Capture an image and run YOLO inference.
-        
-        Args:
-            save (bool): If True, save the inference result.
-            
-        Returns:
-            result: The inference result if objects are detected, otherwise None.
-            
-        Raises:
-            ModelError: If an error occurs during model inference.
-        """
         try:
             img = self.get_img()
             if save_data:
@@ -53,31 +36,15 @@ class YOLOModel:
             raise ModelError("Error during model inference") from e
 
     def get_img(self):
-        """
-        Fetch an image from the camera server.
-        
-        Returns:
-            np.ndarray: The image in BGR format.
-            
-        Raises:
-            CameraError: If an error occurs while fetching the image.
-        """
         try:
             response = requests.get(self.image_url)
             response.raise_for_status()
             image = PILImage.open(BytesIO(response.content))
-            # Convert from RGB to BGR
-            return np.array(image)[:, :, ::-1]
+            return np.array(image)
         except requests.exceptions.RequestException as e:
             raise CameraError("Error fetching image from camera") from e
 
     def capture_and_save_image(self):
-        """
-        Capture an image from the camera and save it with a timestamp.
-        
-        Raises:
-            CameraError: If an error occurs while fetching the image.
-        """
         try:
             response = requests.get(self.image_url)
             response.raise_for_status()

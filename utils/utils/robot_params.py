@@ -18,7 +18,7 @@ rpm = 230                               # Rated speed
 rated_speed = rpm * 2 * math.pi / 60.0  # rad/s
 max_linear_speed = 0.3                  # m/s (~1 km/h)
 # max_linear_speed = 1.2                  # m/s (~1 km/h)
-max_angular_speed = 0.3                 # rad/s
+max_angular_speed = 0.6                 # rad/s
 max_zero_angular_speed = 3.0            # For high torque turns
 
 # --------------------------
@@ -30,14 +30,13 @@ ticks_per_revolution = 3456     # Ticks per wheel revolution
 # Motor Control Parameters
 # --------------------------
 min_duty_cycle = 9
-max_motor_linear_speed = 2 * math.pi * wheel_radius * 230 / 60 - 0.5        # m/s, with 0.5 safety factor
-min_motor_linear_speed = 2 * math.pi * wheel_radius * (3 / 100) * 230 / 60  # m/s
-motor_comp_factor = 1.0
 
 # --------------------------
 # Feature Constraints
 # --------------------------
-pid_linear_error_tolerance = 0.005  # m
+pid_linear_pos_error_tolerance = 0.005  # m
+pid_linear_path_error_tolerance = 0.1  # m
+angular_error_tolerance = 0.1       # rad
 y_axis_alignment_tolerance = 0.01   # m
 
 # --------------------------
@@ -96,3 +95,18 @@ ground_points = np.array([
 # Autonomous Mode Settings
 # --------------------------
 explore_linear_speed = 0.3  # m/s
+
+# --------------------------
+# UART Stuff
+# --------------------------
+weed_removal_byte = 0x87
+ack_byte = 0x43
+callback_byte = 0x03
+ticks_byte = 0xAE
+battery_byte = 0x11
+left_byte = 0x7E
+right_byte = 0x3F
+up_byte = 0x5A
+down_byte = 0x9A
+drill_byte = 0x0F
+stop_byte = 0x07
