@@ -2,4 +2,4 @@
 ROS2 Workspace for the WeedWarden capstone project
 
 ## Architecture
-![Architecture Diagram](/img/arch_light.png)
+![Architecture Diagram](/img/archv3.png)
