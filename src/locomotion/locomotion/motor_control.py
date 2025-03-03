@@ -28,8 +28,8 @@ class MotorController:
                 file.write("duty_left,duty_right\n")
 
     def set_velocity(self, linear_x, angular_z, closed_loop=True):
-        linear_x = max(-rp.max_linear_speed, min(linear_x, rp.max_linear_speed))
-        angular_z = max(-rp.max_angular_speed, min(angular_z, rp.max_angular_speed))
+        # linear_x = max(-rp.max_linear_speed, min(linear_x, rp.max_linear_speed))
+        # angular_z = max(-rp.max_angular_speed, min(angular_z, rp.max_angular_speed))
 
         left_wheel_velocity = linear_x - (angular_z * rp.wheel_base / 2)
         right_wheel_velocity = linear_x + (angular_z * rp.wheel_base / 2)

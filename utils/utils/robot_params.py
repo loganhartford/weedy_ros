@@ -14,17 +14,13 @@ y_axis_max = 245        # mm
 # --------------------------
 # Motor Specifications
 # --------------------------
-rpm = 230                               # Rated speed
+rpm = 23                               # Rated speed
 rated_speed = rpm * 2 * math.pi / 60.0  # rad/s
-max_linear_speed = 0.3                  # m/s (~1 km/h)
-# max_linear_speed = 1.2                  # m/s (~1 km/h)
-max_angular_speed = 0.6                 # rad/s
-max_zero_angular_speed = 3.0            # For high torque turns
 
 # --------------------------
 # Encoder Specifications
 # --------------------------
-ticks_per_revolution = 3456     # Ticks per wheel revolution
+ticks_per_revolution = 64 * 515 # 64 ticks per revolution, 515 gear ratio
 
 # --------------------------
 # Motor Control Parameters
