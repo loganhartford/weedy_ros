@@ -64,9 +64,9 @@ class TeleopNode(Node):
         if event.axis in {2, 5}:  # Triggers
             value = self.joystick.get_axis(event.axis) + 1
             if event.axis == 2 and value > 0.5:
-                angular_z = -rp.max_zero_angular_speed
+                angular_z = -rp.max_angular_speed
             elif event.axis == 5 and value > 0.5:
-                angular_z = rp.max_zero_angular_speed
+                angular_z = rp.max_angular_speed
             else:
                 angular_z = 0.0
         else:  # Joystick movement (Left stick: linear, Right stick: angular)
