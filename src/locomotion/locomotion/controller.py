@@ -52,12 +52,9 @@ class ControllerNode(Node):
         self.get_logger().info("Controller Initialized")
        
     def control_loop(self):
-        if self.pose is None:
-            return
-
-        if self.new_position != []:
+        if self.pose is not None and self.new_position != []:
             self.closed_loop_positioning()
-        elif self.path != []:
+        elif self.pose is not None and self.path != []:
             self.close_loop_path_following()
         else:
             self.open_loop_control()
