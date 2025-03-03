@@ -15,6 +15,8 @@ class MotorController:
         self.right_motor = HardwarePWM(pwm_channel=1, hz=20000, chip=2)
         self.left_motor.start(0)
         self.right_motor.start(0)
+        self.last_angular_vel = 0
+        self.last_linear_vel = 0
 
         self.left_motordir = 5
         self.right_motordir = 6
@@ -28,9 +30,14 @@ class MotorController:
                 file.write("duty_left,duty_right\n")
 
     def set_velocity(self, linear_x, angular_z, closed_loop=True):
-        # linear_x = max(-rp.max_linear_speed, min(linear_x, rp.max_linear_speed))
-        # angular_z = max(-rp.max_angular_speed, min(angular_z, rp.max_angular_speed))
+        if not closed_loop:
+            # LPF
+            self.last_angular_vel = self.last_angular_vel + rp.gain_speed * (angular_z - self.last_angular_vel)
+            self.last_linear_vel = self.last_linear_vel + rp.gain_speed * (linear_x - self.last_linear_vel)
 
+            angular_z = self.last_angular_vel
+            linear_x = self.last_linear_vel
+        
         left_wheel_velocity = linear_x - (angular_z * rp.wheel_base / 2)
         right_wheel_velocity = linear_x + (angular_z * rp.wheel_base / 2)
 
