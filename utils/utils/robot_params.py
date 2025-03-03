@@ -16,6 +16,8 @@ y_axis_max = 245        # mm
 # --------------------------
 rpm = 23                               # Rated speed
 rated_speed = rpm * 2 * math.pi / 60.0  # rad/s
+max_linear_speed = 0.3                  # m/s
+max_angular_speed = 0.6                 # rad/s
 
 # --------------------------
 # Encoder Specifications
