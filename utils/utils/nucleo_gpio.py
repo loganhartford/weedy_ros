@@ -5,8 +5,16 @@ from utils.exceptions import GPIOError
 class NucleoGPIO:
     def __init__(self):
         self.reset_pin = 24
+        self.start_pin = 26
         self.chip = None
 
+    def enable_nucelo(self):
+        try:
+            self._open()
+            lgpio.gpio_claim_output(self.chip, self.start_pin, level=1)
+        except Exception as e:
+            raise GPIOError(f"Error toggling reset: {e}")
+        
     def toggle_reset(self):
         try:
             self._open()
@@ -41,4 +49,5 @@ class NucleoGPIO:
 
     def __del__(self):
         if self.chip:
+            lgpio.gpio_write(self.chip, self.start_pin, 0)
             self._close()

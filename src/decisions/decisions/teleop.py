@@ -64,9 +64,9 @@ class TeleopNode(Node):
         if event.axis in {2, 5}:  # Triggers
             value = self.joystick.get_axis(event.axis) + 1
             if event.axis == 2 and value > 0.5:
-                angular_z = -rp.max_angular_speed
-            elif event.axis == 5 and value > 0.5:
                 angular_z = rp.max_angular_speed
+            elif event.axis == 5 and value > 0.5:
+                angular_z = -rp.max_angular_speed
             else:
                 angular_z = 0.0
         else:  # Joystick movement (Left stick: linear, Right stick: angular)
@@ -106,8 +106,8 @@ class TeleopNode(Node):
         elif event.button == 6:  # Back button (-) - Toggle GPIO reset
             self.toggle_nucleo_reset()
         elif event.button == 7:  # Start button (+) - Circle turn
-            radius = 0.35  # Choose a radius greater than 0.269 m for pure forward motion
-            twist.linear.x = 0.3
+            radius = 0.90  # Choose a radius greater than 0.269 m for pure forward motion
+            twist.linear.x = 0.134
             twist.angular.z = -twist.linear.x / radius
             self.cmd_vel_pub.publish(twist)
         elif event.button == 10:  # Right Stick Press - Drill activation (uses manual_control)

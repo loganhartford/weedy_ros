@@ -17,7 +17,7 @@ y_axis_max = 245        # mm
 rpm = 23                               # Rated speed
 rated_speed = rpm * 2 * math.pi / 60.0  # rad/s
 max_linear_speed = (2 * math.pi * wheel_radius) * rpm / 60 # m/s
-max_angular_speed = max_linear_speed # rad/s
+max_angular_speed = 2*max_linear_speed # rad/s
 gain_speed = 0.5
 
 # --------------------------

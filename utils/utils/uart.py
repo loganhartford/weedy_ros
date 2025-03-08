@@ -23,7 +23,8 @@ class UARTNode(Node):
         self.cmd_pub = self.create_publisher(String, '/cmd', 10)
         self.ticks_pub = self.create_publisher(Int32MultiArray, '/ticks', 1)
         self.battery_pub = self.create_publisher(Float32, '/battery', 1)
-        self.create_timer(0.01, self.check_incoming_messages)
+        
+        self.incoming_timer = None
 
         self.nucleo_gpio = NucleoGPIO()
 
@@ -34,10 +35,12 @@ class UARTNode(Node):
         if not data:
             self.get_logger().warning("Received empty byte array.")
             return
-
+        
         if data[0] == rp.weed_removal_byte:
             self.send_weed_removal(data)
         elif data[0] == rp.battery_byte:
+            if self.incoming_timer == None:
+                self.incoming_timer = self.create_timer(0.01, self.check_incoming_messages)
             self.get_battery_voltage()
         else:
             self.ser.write(data)

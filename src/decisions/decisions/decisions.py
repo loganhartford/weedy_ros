@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from enum import Enum, auto
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -38,6 +39,7 @@ class DecisionsNode(Node):
         # Hardware and utility components
         self.led_ring = NeoPixelRing()
         self.nuc_gpio = NucleoGPIO()
+        self.nuc_gpio.enable_nucelo()
         self.cv_model = YOLOModel()
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5
@@ -46,7 +48,6 @@ class DecisionsNode(Node):
 
         self.move_timeout = 5
         self.battery_voltage = None
-        self.request_battery_voltage()
 
         # Compute homography matrix
         self.H, status = cv2.findHomography(rp.pixel_points, rp.ground_points, cv2.RANSAC, 5.0)
@@ -70,6 +71,7 @@ class DecisionsNode(Node):
         self.state = State.IDLE
         
         self.get_logger().info("Decisions Initialized")
+        self.request_battery_voltage()
 
     def cancel_all_timers(self):
         for attr in ("explore_timer", "align_timer", "wait_timer"):

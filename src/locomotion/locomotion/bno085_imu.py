@@ -3,10 +3,12 @@ import busio
 import rclpy
 import lgpio
 import time
+import math
 from adafruit_bno08x import (
     BNO_REPORT_ACCELEROMETER,
     BNO_REPORT_GYROSCOPE,
-    BNO_REPORT_ROTATION_VECTOR
+    BNO_REPORT_ROTATION_VECTOR,
+    BNO_REPORT_MAGNETOMETER
 )
 from adafruit_bno08x.i2c import BNO08X_I2C
 
@@ -43,6 +45,7 @@ class BNO085IMU(Node):
                 self.bno.enable_feature(BNO_REPORT_ACCELEROMETER)
                 self.bno.enable_feature(BNO_REPORT_GYROSCOPE)
                 self.bno.enable_feature(BNO_REPORT_ROTATION_VECTOR)
+                self.bno.enable_feature(BNO_REPORT_MAGNETOMETER)
             except Exception as e:
                 self.bno = None
                 self.get_logger().error(f"Error initializing BNO085 IMU: {e}")
@@ -54,8 +57,6 @@ class BNO085IMU(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = self.frame_id
         
-        # NOTE: The BNO085 sensor is mounted in a different orientation than the ROS standard
-        #       so we need to swap the axes and invert the z-axis to match the ROS standard.
         try:
             # Read accelerometer data (m/s^2)
             accel_x, accel_y, accel_z = self.bno.acceleration
@@ -75,6 +76,20 @@ class BNO085IMU(Node):
             msg.orientation.y = -quat_i
             msg.orientation.z = quat_k
             msg.orientation.w = quat_real
+
+            # Read magnetometer data (microteslas)
+            mag_x, mag_y, mag_z = self.bno.magnetic
+
+            # Calculate heading in radians
+            heading = math.atan2(mag_z, mag_x)
+            # self.get_logger().info(f"Magnetometer: heading={heading} x={mag_x}, y={mag_y}, z={mag_z}")
+
+            # Convert heading to degrees
+            heading_degrees = math.degrees(heading)
+            if heading_degrees < 0:
+                heading_degrees += 360
+
+            # self.get_logger().info(f"Heading: {heading_degrees} degrees")
             
         except Exception as e:
             self.get_logger().error(f"Error reading IMU data: {e}")
