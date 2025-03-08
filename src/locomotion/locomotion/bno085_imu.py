@@ -26,7 +26,7 @@ class BNO085IMU(Node):
         self.imu_publisher = self.create_publisher(Imu, '/imu', 10)
         
         self.frequency = 50
-        self.frame_id = "base_link"
+        self.frame_id = "imu_link"
 
         self.reset_pin = 23
         self.chip = lgpio.gpiochip_open(0)

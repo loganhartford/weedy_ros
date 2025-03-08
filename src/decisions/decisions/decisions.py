@@ -18,6 +18,7 @@ from utils.utilities import two_d_array_to_float32_multiarray, package_removal_c
 
 class State(Enum):
     IDLE = auto()
+    TRAVEL = auto()
     EXPLORING = auto()
     ALIGNING = auto()
     WAITING = auto()
@@ -43,8 +44,10 @@ class DecisionsNode(Node):
         self.cv_model = YOLOModel()
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5
+        
         self.planner = Planner()
         self.path = None
+        self.path_type = None
 
         self.move_timeout = 5
         self.battery_voltage = None
@@ -63,8 +66,9 @@ class DecisionsNode(Node):
         self.removal_in_process = False
 
         self.valid_transitions = {
-            State.IDLE: [State.EXPLORING],
-            State.EXPLORING: [State.IDLE, State.ALIGNING],
+            State.IDLE: [State.EXPLORING, State.TRAVEL],
+            State.TRAVEL: [State.IDLE, State.EXPLORING],
+            State.EXPLORING: [State.IDLE, State.ALIGNING, State.TRAVEL],
             State.ALIGNING: [State.IDLE, State.WAITING],
             State.WAITING: [State.IDLE, State.EXPLORING, State.ALIGNING],
         }
@@ -155,7 +159,7 @@ class DecisionsNode(Node):
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
         if abs(best_point[0] / 1000.0) < rp.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
-            self.uart_pub.publish(package_removal_command(best_point[1]))
+            # self.uart_pub.publish(package_removal_command(best_point[1]))
             self.align_timer.cancel()
             self.transition_to_state(State.WAITING)
             return
@@ -246,13 +250,27 @@ class DecisionsNode(Node):
     def cmd_callback(self, msg: String):
         command = msg.data.lower()
         if command == "start":
-            self.transition_to_state(State.EXPLORING)
+            self.path_type, self.path = self.planner.plan()
+            if self.path_type == "travel":
+                self.transition_to_state(State.TRAVEL)
+                path_msg = two_d_array_to_float32_multiarray(self.path)
+                self.path_pub.publish(path_msg)
+            elif self.path_type == "work":
+                self.transition_to_state(State.EXPLORING)
         elif command == "stop":
             self.transition_to_state(State.IDLE)
         elif command == "new_pos_reached":
             self.transition_to_state(State.ALIGNING)
         elif command == "path_complete":
-            self.transition_to_state(State.IDLE)
+            self.path_type, self.path = self.planner.plan()
+            if self.path_type == "travel":
+                self.transition_to_state(State.TRAVEL)
+                path_msg = two_d_array_to_float32_multiarray(self.path)
+                self.path_pub.publish(path_msg)
+            elif self.path_type == "work":
+                self.transition_to_state(State.EXPLORING)
+            elif self.path_type == "done":
+                self.transition_to_state(State.IDLE)
         elif self.state == State.WAITING and command == "removal_complete":
             self.transition_to_state(State.EXPLORING)
         elif command == "get_img":

@@ -80,16 +80,22 @@ class ControllerNode(Node):
         linear_error = calculate_linear_error(self.pose.pose, self.path[-1])
         angular_error = calculate_angular_error(self.pose.pose, angular_goal)
         
-        if linear_error < rp.pid_linear_path_error_tolerance and angular_error < rp.angular_error_tolerance:
-            self.reset_control()
-            self.get_logger().info("path_complete")
-            self.cmd_publisher.publish(String(data="path_complete"))
-            return
-        
-        if angular_goal[2] < 2*np.pi:
+        if abs(angular_goal[2]) < 2*np.pi:
+            if abs(angular_error) < rp.angular_error_tolerance:
+                self.reset_control()
+                self.get_logger().info("path_complete")
+                self.cmd_publisher.publish(String(data="path_complete"))
+                return
+            
             linear_vel = 0
             angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
         else:
+            if linear_error < rp.pid_linear_path_error_tolerance:
+                self.reset_control()
+                self.get_logger().info("path_complete")
+                self.cmd_publisher.publish(String(data="path_complete"))
+                return
+        
             linear_vel = self.path_linear_pid.update([linear_error, self.pose.header.stamp])
             angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
         

@@ -68,7 +68,7 @@ class OdometryNode(Node):
 
         if rp.log:
             with open(self.ticks_log, "a") as file:
-                file.write(f"{self.tick_left},{self.ticks_right}\n")
+                file.write(f"{ticks_left},{ticks_right}\n")
 
         stamp = self.clock.now()
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9
