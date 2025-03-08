@@ -66,8 +66,8 @@ class LocalizationNode(Node):
                             0,
                             0])        
 
-            Q=0.2*np.eye(6)
-            R=0.5*np.eye(4)
+            Q=1.0*np.eye(6)
+            R=0.1*np.eye(4)
             P=Q.copy()
             
             self.kf=KalmanFilter(P, Q, R, x)
@@ -88,7 +88,7 @@ class LocalizationNode(Node):
         self.pose.pose.position.x = xhat[0]
         self.pose.pose.position.y = xhat[1]
         self.pose.pose.orientation.z = xhat[2]
-        self.pose.header.stamp = stamp
+        self.pose.header.stamp = stamp.to_msg()
         self.pose_pub.publish(self.pose)
 
 

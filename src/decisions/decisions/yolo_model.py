@@ -15,7 +15,7 @@ class YOLOModel:
         self.model = YOLO(self.model_path, task="pose", verbose=False)
         self.image_url = "http://localhost:8000"
 
-    def run_inference(self, save_data=True, save_result=False):
+    def run_inference(self, save_data=False, save_result=False):
         try:
             img = self.get_img()
             if save_data:

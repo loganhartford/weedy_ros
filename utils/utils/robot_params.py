@@ -18,24 +18,28 @@ rpm = 23                               # Rated speed
 rated_speed = rpm * 2 * math.pi / 60.0  # rad/s
 max_linear_speed = (2 * math.pi * wheel_radius) * rpm / 60 # m/s
 max_angular_speed = 2*max_linear_speed # rad/s
-gain_speed = 0.5
+ol_speed_gain = 0.5
+cl_speed_gain = 0.1
+path_max_linear_speed = 0.15
+path_max_angular_speed = path_max_linear_speed * 2
+
 
 # --------------------------
 # Encoder Specifications
 # --------------------------
-ticks_per_revolution = 64 * 515 # 64 ticks per revolution, 515 gear ratio
+ticks_per_revolution = 64 * 533 # 64 ticks per revolution, 515 gear ratio
 
 # --------------------------
 # Motor Control Parameters
 # --------------------------
-min_duty_cycle = 9
+min_duty_cycle = 5
 
 # --------------------------
 # Feature Constraints
 # --------------------------
-pid_linear_pos_error_tolerance = 0.005  # m
-pid_linear_path_error_tolerance = 0.1  # m
-angular_error_tolerance = 0.1       # rad
+pid_linear_pos_error_tolerance = 0.001  # m
+pid_linear_path_error_tolerance = 0.01  # m
+angular_error_tolerance = 0.02       # rad, 1 degree
 y_axis_alignment_tolerance = 0.01   # m
 
 # --------------------------

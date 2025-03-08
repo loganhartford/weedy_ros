@@ -9,7 +9,7 @@ pwm2.start(0)
 # pwm.change_duty_cycle(10)
 # time.sleep(1)
 
-duty = 8
+duty = 5
 
 try:
     while True:

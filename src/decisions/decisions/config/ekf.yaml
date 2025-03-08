@@ -1,0 +1,34 @@
+ekf_filter_node:
+  frequency: 30
+  sensor_timeout: 0.1
+  two_d_mode: true
+  transform_time_offset: 0.0
+  transform_timeout: 0.0
+  print_diagnostics: true
+
+  map_frame: map
+  odom_frame: odom
+  base_link_frame: base_link
+  world_frame: odom
+
+  # IMU configuration
+  imu0: /imu
+  imu0_config: [false, false, false,
+                true, true, true,
+                false, false, false,
+                false, false, false,
+                false, false, false]
+  imu0_differential: false
+  imu0_relative: false
+  imu0_queue_size: 10
+
+  # odometry configuration
+  odom0: /odom
+  odom0_config: [true, true, false,
+                 false, false, false,
+                 false, false, false,
+                 false, false, false,
+                 false, false, false]
+  odom0_differential: false
+  odom0_relative: false
+  odom0_queue_size: 10

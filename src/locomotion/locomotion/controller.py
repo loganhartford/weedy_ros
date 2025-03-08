@@ -30,20 +30,20 @@ class ControllerNode(Node):
         self.motor_controller = MotorController()
 
         self.positioning_linear_pid = PID_ctrl(
-            kp=5.0, kd=0.0, ki=2.0,
+            kp=1.0, kd=0.0, ki=0.0,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/lin_pid_log.csv"
         )
         self.positioning_angular_pid = PID_ctrl(
-            kp=0.0, kd=0.0, ki=0.0,
+            kp=5.0, kd=0.0, ki=0.0,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ang_pid_log.csv"
         )
 
         self.path_linear_pid = PID_ctrl(
-            kp=5.0, kd=0.0, ki=2.0,
+            kp=1.0, kd=0.0, ki=0.0,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/path_lin_pid_log.csv"
         )
         self.path_angular_pid = PID_ctrl(
-            kp=5.0, kd=0.0, ki=10.0,
+            kp=1.0, kd=0.0, ki=0.0,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/path_ang_pid_log.csv"
         )
 
@@ -76,17 +76,22 @@ class ControllerNode(Node):
 
     def close_loop_path_following(self):
         # Compute linear error to final goal and angular error to next goal.
+        angular_goal = self.look_far_for(self.pose.pose, self.path)
         linear_error = calculate_linear_error(self.pose.pose, self.path[-1])
-        angular_error = calculate_angular_error(self.pose.pose, self.look_far_for(self.pose.pose, self.path))
+        angular_error = calculate_angular_error(self.pose.pose, angular_goal)
         
-        if linear_error < rp.pid_linear_path_error_tolerance:
+        if linear_error < rp.pid_linear_path_error_tolerance and angular_error < rp.angular_error_tolerance:
             self.reset_control()
             self.get_logger().info("path_complete")
             self.cmd_publisher.publish(String(data="path_complete"))
             return
-
-        linear_vel = self.path_linear_pid.update([linear_error, self.pose.header.stamp])
-        angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
+        
+        if angular_goal[2] < 2*np.pi:
+            linear_vel = 0
+            angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
+        else:
+            linear_vel = self.path_linear_pid.update([linear_error, self.pose.header.stamp])
+            angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
         
         self.motor_controller.set_velocity(linear_vel, angular_vel)
 

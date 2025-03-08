@@ -1,7 +1,12 @@
+import os
+
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
 def generate_launch_description():
+    # Locate the ekf.yaml in your decisions package
+    ekf_config_file = "/mnt/shared/weedy_ros/src/decisions/decisions/config/ekf.yaml"
+
     return LaunchDescription([
         Node(
             package='decisions',
@@ -50,4 +55,13 @@ def generate_launch_description():
             name='uart',
             output='screen',
         ),
+
+        # Add the EKF node from robot_localization
+        # Node(
+        #     package='robot_localization',
+        #     executable='ekf_node',
+        #     name='ekf_filter_node',
+        #     output='screen',
+        #     parameters=[ekf_config_file]
+        # ),
     ])

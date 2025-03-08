@@ -30,13 +30,20 @@ class MotorController:
                 file.write("duty_left,duty_right\n")
 
     def set_velocity(self, linear_x, angular_z, closed_loop=True):
-        if not closed_loop:
-            # LPF
-            self.last_angular_vel = self.last_angular_vel + rp.gain_speed * (angular_z - self.last_angular_vel)
-            self.last_linear_vel = self.last_linear_vel + rp.gain_speed * (linear_x - self.last_linear_vel)
+        # LPF
+        if closed_loop:
+            gain = rp.cl_speed_gain
+        else:
+            gain = rp.ol_speed_gain
 
-            angular_z = self.last_angular_vel
-            linear_x = self.last_linear_vel
+        self.last_angular_vel = round(self.last_angular_vel + gain * (angular_z - self.last_angular_vel),4)
+        self.last_linear_vel = round(self.last_linear_vel + gain * (linear_x - self.last_linear_vel), 4)
+
+        angular_z = self.last_angular_vel
+        linear_x = self.last_linear_vel
+
+        if closed_loop:
+            linear_x = max(min(linear_x, rp.path_max_linear_speed), -rp.path_max_linear_speed)
         
         left_wheel_velocity = linear_x - (angular_z * rp.wheel_base / 2)
         right_wheel_velocity = linear_x + (angular_z * rp.wheel_base / 2)

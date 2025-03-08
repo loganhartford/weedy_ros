@@ -29,6 +29,9 @@ class OdometryNode(Node):
         self.odom.pose.pose.orientation.z = 0.0
         self.odom.twist.twist.linear.x = 0.0
         self.odom.twist.twist.angular.z = 0.0
+
+        self.max_ticks = 2**15 - 1
+        self.min_ticks = -2**15
         
         self.clock = Clock()
         self.last_time= self.clock.now()
@@ -52,24 +55,20 @@ class OdometryNode(Node):
             self.last_ticks_left = ticks_left
             self.last_ticks_right = ticks_right
             return None
-
-        # Define tick rollover limits (INT16)
-        max_ticks = 2**15 - 1
-        min_ticks = -2**15
-
+        
         delta_left = ticks_left - self.last_ticks_left
         delta_right = ticks_right - self.last_ticks_right
 
         # Adjust for rollover
-        delta_left = self.adjust_ticks(delta_left, max_ticks, min_ticks)
-        delta_right = self.adjust_ticks(delta_right, max_ticks, min_ticks)
+        delta_left = self.adjust_ticks(delta_left)
+        delta_right = self.adjust_ticks(delta_right)
 
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
 
         if rp.log:
             with open(self.ticks_log, "a") as file:
-                file.write(f"{ticks_left},{ticks_right}\n")
+                file.write(f"{self.tick_left},{self.ticks_right}\n")
 
         stamp = self.clock.now()
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9
@@ -112,11 +111,11 @@ class OdometryNode(Node):
         with open(self.odom_log, "a") as file:
             file.write(f"{timestamp},{pos.x},{pos.y},{pos.z},{orient.z},{orient.w}\n")
 
-    def adjust_ticks(self, delta, max_ticks, min_ticks):
-        if delta > max_ticks / 2:
-            return delta - (max_ticks - min_ticks + 1)
-        elif delta < min_ticks / 2:
-            return delta + (max_ticks - min_ticks + 1)
+    def adjust_ticks(self, delta):
+        if delta > self.max_ticks / 2:
+            return delta - (self.max_ticks - self.min_ticks + 1)
+        elif delta < self.min_ticks / 2:
+            return delta + (self.max_ticks - self.min_ticks + 1)
         return delta
 
 

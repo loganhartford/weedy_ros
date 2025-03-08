@@ -13,6 +13,16 @@ def create_quaternion_from_yaw(yaw: float) -> Quaternion:
         w=cos(yaw / 2.0)
     )
 
+def quaternion_multiply(q1, q2):
+    x1, y1, z1, w1 = q1
+    x2, y2, z2, w2 = q2
+    return [
+        w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+        w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+        w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+        w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+    ]
+
 def calculate_positioning_error(pose, goal):
     return goal[0] - pose.position.x
 
@@ -22,8 +32,11 @@ def calculate_linear_error(pose, goal):
     return linear_error
 
 def calculate_angular_error(pose, goal):
-    angular_error = atan2(goal[1] - pose.position.y, goal[0] - pose.position.x) - pose.orientation.z
-    angular_error = normalize_angle(angular_error)
+    if goal[2] < 2*np.pi:
+        return goal[2] - pose.orientation.z
+    else:
+        angular_error = atan2(goal[1] - pose.position.y, goal[0] - pose.position.x) - pose.orientation.z
+        angular_error = normalize_angle(angular_error)
 
     return angular_error
 

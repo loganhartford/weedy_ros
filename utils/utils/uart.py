@@ -120,10 +120,8 @@ class UARTNode(Node):
                 # Parse tick values (handle signed 16-bit integers)
                 ticks1 = (buffer[1] << 8) | buffer[2]
                 ticks2 = (buffer[3] << 8) | buffer[4]
-                if ticks1 & (1 << 15):
-                    ticks1 -= (1 << 16)
-                if ticks2 & (1 << 15):
-                    ticks2 -= (1 << 16)
+                ticks1 = np.int16(ticks1)
+                ticks2 = np.int16(ticks2)
                 
                 ticks_msg = Int32MultiArray()
                 ticks_msg.data = [ticks1, ticks2]

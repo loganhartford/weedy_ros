@@ -4,6 +4,7 @@ import rclpy
 import lgpio
 import time
 import math
+
 from adafruit_bno08x import (
     BNO_REPORT_ACCELEROMETER,
     BNO_REPORT_GYROSCOPE,
@@ -15,6 +16,9 @@ from adafruit_bno08x.i2c import BNO08X_I2C
 from rclpy.node import Node
 from sensor_msgs.msg import Imu
 
+from utils.utilities import quaternion_multiply
+
+
 class BNO085IMU(Node):
     def __init__(self):
         super().__init__('bno085_imu_node')
@@ -22,11 +26,13 @@ class BNO085IMU(Node):
         self.imu_publisher = self.create_publisher(Imu, '/imu', 10)
         
         self.frequency = 50
-        self.frame_id = "imu_link"
+        self.frame_id = "base_link"
 
         self.reset_pin = 23
         self.chip = lgpio.gpiochip_open(0)
         lgpio.gpio_claim_output(self.chip, self.reset_pin, level=1)
+
+        self.q_offset = [0, 0, -0.7071, 0.7071] # Rotated -90 about z
         
         self.bno = None
         self.init_bno085()
@@ -45,7 +51,6 @@ class BNO085IMU(Node):
                 self.bno.enable_feature(BNO_REPORT_ACCELEROMETER)
                 self.bno.enable_feature(BNO_REPORT_GYROSCOPE)
                 self.bno.enable_feature(BNO_REPORT_ROTATION_VECTOR)
-                self.bno.enable_feature(BNO_REPORT_MAGNETOMETER)
             except Exception as e:
                 self.bno = None
                 self.get_logger().error(f"Error initializing BNO085 IMU: {e}")
@@ -72,24 +77,15 @@ class BNO085IMU(Node):
 
             # Read quaternion rotation data
             quat_i, quat_j, quat_k, quat_real = self.bno.quaternion
-            msg.orientation.x = quat_j
-            msg.orientation.y = -quat_i
-            msg.orientation.z = quat_k
-            msg.orientation.w = quat_real
+            q_sensor = [quat_i, quat_j, quat_k, quat_real]
+            
+            # Transform sensor quaternion into robot frame
+            q_robot = quaternion_multiply(self.q_offset, q_sensor)
 
-            # Read magnetometer data (microteslas)
-            mag_x, mag_y, mag_z = self.bno.magnetic
-
-            # Calculate heading in radians
-            heading = math.atan2(mag_z, mag_x)
-            # self.get_logger().info(f"Magnetometer: heading={heading} x={mag_x}, y={mag_y}, z={mag_z}")
-
-            # Convert heading to degrees
-            heading_degrees = math.degrees(heading)
-            if heading_degrees < 0:
-                heading_degrees += 360
-
-            # self.get_logger().info(f"Heading: {heading_degrees} degrees")
+            msg.orientation.x = q_robot[0]
+            msg.orientation.y = q_robot[1]
+            msg.orientation.z = q_robot[2]
+            msg.orientation.w = q_robot[3]
             
         except Exception as e:
             self.get_logger().error(f"Error reading IMU data: {e}")
@@ -105,9 +101,9 @@ class BNO085IMU(Node):
     
     def reset(self):
         lgpio.gpio_write(self.chip, self.reset_pin, 0)
-        time.sleep(0.001)
+        time.sleep(0.1)
         lgpio.gpio_write(self.chip, self.reset_pin, 1)
-        time.sleep(0.001)
+        time.sleep(0.1)
 
 def main(args=None):
     rclpy.init(args=args)

@@ -187,7 +187,7 @@ class DecisionsNode(Node):
 
 
     def get_boxes(self):
-        result = self.cv_model.run_inference()
+        result = self.cv_model.run_inference(save_data=True)
         if result is None:
             return None
 
@@ -196,7 +196,7 @@ class DecisionsNode(Node):
         return result.boxes if len(result.boxes) > 0 else None
 
     def get_keypoints(self):
-        result = self.cv_model.run_inference()
+        result = self.cv_model.run_inference(save_data=True)
         if result is None or not result.keypoints:
             return None
 
@@ -253,7 +253,7 @@ class DecisionsNode(Node):
             self.transition_to_state(State.ALIGNING)
         elif command == "path_complete":
             self.transition_to_state(State.IDLE)
-        elif command == "removal_complete":
+        elif self.state == State.WAITING and command == "removal_complete":
             self.transition_to_state(State.EXPLORING)
         elif command == "get_img":
             self.cv_model.capture_and_save_image()

@@ -29,9 +29,6 @@ class PID_ctrl:
         if len(self.history) > self.history_length:
             self.history.pop(0)
         
-        if len(self.history) != self.history_length:
-            return self.kp * latest_error
-        
         # Compute the error derivative
         dt_avg = 0
         error_dot = 0
