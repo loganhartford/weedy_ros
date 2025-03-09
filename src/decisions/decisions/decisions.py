@@ -39,8 +39,7 @@ class DecisionsNode(Node):
 
         # Hardware and utility components
         self.led_ring = NeoPixelRing()
-        self.nuc_gpio = NucleoGPIO()
-        self.nuc_gpio.enable_nucelo()
+        
         self.cv_model = YOLOModel()
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5
