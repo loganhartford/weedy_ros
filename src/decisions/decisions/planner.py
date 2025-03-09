@@ -1,21 +1,24 @@
 
 
+x = 1.4
+y = 0.5
+
+start_x = 0.0
+stary_y = 0.0
+no_rotate = 10.0 # just some large value
+
 class Planner:
+    
     def __init__(self):
         self.path = [
-            [[0.5, 0.0, 10.0], [0.9, -0.6, 10.0]],
-            [[0.9, -0.6, 0.0]],
-            [[1.4, -0.6, 10.0]],
-            [[1.4, -0.6, -1.57]],
-            [[1.4, -2.2, 10.0]],
-            [[1.4, -2.2, -3.14]],
-            [[0.9, -2.2, 10.0]],
-            [[0.9, -2.2, 1.57]],
-            [[0.9, -0.8, 10.0]],
-            [[0.9, -0.6, 10.0]],
-            [[0.4, 0.0, 10.0]],
-            [[0.4, 0.0, 0.0]],
-            [[0.0, 0.0, 10.0]],
+            [[start_x + x, stary_y, no_rotate]],
+            [[start_x + x, stary_y, -1.57]],
+            [[start_x + x, stary_y - y, no_rotate]],
+            [[start_x + x, stary_y - y, 3.14]],
+            [[start_x, stary_y - y, no_rotate]],
+            [[start_x, stary_y - y, 1.57]],
+            [[start_x, stary_y, no_rotate]],
+            # [[0.0, 0.0, no_rotate]],
         ]  
         self.type = ["travel", "travel", "travel", "travel"]
         self.index = 0

@@ -9,6 +9,12 @@ def generate_launch_description():
 
     return LaunchDescription([
         Node(
+            package='utils',
+            executable='uart',
+            name='uart',
+            output='screen',
+        ),
+        Node(
             package='decisions',
             executable='decisions',
             name='decisions',
@@ -49,19 +55,17 @@ def generate_launch_description():
             name='teleop',
             output='screen',
         ),
-        Node(
-            package='utils',
-            executable='uart',
-            name='uart',
-            output='screen',
-        ),
+        # Node(
+        #     package='foxglove_bridge',
+        #     executable='foxglove_bridge',
+        # )
 
         # Add the EKF node from robot_localization
-        # Node(
-        #     package='robot_localization',
-        #     executable='ekf_node',
-        #     name='ekf_filter_node',
-        #     output='screen',
-        #     parameters=[ekf_config_file]
-        # ),
+        Node(
+            package='robot_localization',
+            executable='ekf_node',
+            name='ekf_filter_node',
+            output='screen',
+            parameters=[ekf_config_file]
+        ),
     ])

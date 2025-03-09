@@ -45,7 +45,7 @@ y_axis_alignment_tolerance = 0.01   # m
 # --------------------------
 # Logging Configuration
 # --------------------------
-log = True  # Set to True to save data to CSV files
+log = False  # Set to True to save data to CSV files
 
 # --------------------------
 # Homography Calibration Points

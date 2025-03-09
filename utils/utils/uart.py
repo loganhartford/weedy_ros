@@ -41,7 +41,7 @@ class UARTNode(Node):
         elif data[0] == rp.battery_byte:
             if self.incoming_timer == None:
                 self.incoming_timer = self.create_timer(0.01, self.check_incoming_messages)
-            self.get_battery_voltage()
+            self.ser.write(data)
         else:
             self.ser.write(data)
 
@@ -61,23 +61,8 @@ class UARTNode(Node):
 
         self.get_logger().error(f"UART Error during command processing: Timeout waiting for acknowledgment after 3 attempts.")
     
-    def get_battery_voltage(self):
-        self.ser.write(bytes([rp.battery_byte]))
-
-        buffer = bytearray()
-        start_time = time.time()
-        while len(buffer) < 4:
-            if (time.time() - start_time) > self.ack_timeout:
-                self.get_logger().error("Timeout waiting for battery reply.")
-                return
-            data = self.ser.read(self.ser.in_waiting or 1)
-            if data:
-                buffer.extend(data)
-
-        if buffer[0] != rp.battery_byte:
-            self.get_logger().error("Invalid start byte in battery reply.")
-            return
-
+    def parse_battery_msg(self, buffer):
+        self.get_logger().info(f"{buffer}")
         if sum(buffer[:-1]) % 256 != buffer[-1]:
             self.get_logger().error("Invalid battery checksum.")
             return
@@ -127,6 +112,8 @@ class UARTNode(Node):
                 ticks_msg.data = [ticks1, ticks2]
                 self.ticks_pub.publish(ticks_msg)
 
+            elif len(buffer) >= 4 and buffer[0] == rp.battery_byte:
+                self.parse_battery_msg(buffer)
             elif buffer[0] == rp.callback_byte:
                 cmd_msg = String(data="removal_complete")
                 self.cmd_pub.publish(cmd_msg)

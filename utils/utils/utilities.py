@@ -5,7 +5,10 @@ import numpy as np
 
 import utils.robot_params as rp
 
-def create_quaternion_from_yaw(yaw: float) -> Quaternion:
+def create_yaw_from_quaternion(quaternion):
+    return atan2(2.0 * (quaternion.w * quaternion.z + quaternion.x * quaternion.y), 1.0 - 2.0 * (quaternion.y ** 2 + quaternion.z ** 2))
+
+def create_quaternion_from_yaw(yaw):
     return Quaternion(
         x=0.0,
         y=0.0,

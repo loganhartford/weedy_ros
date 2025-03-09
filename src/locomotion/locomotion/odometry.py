@@ -9,6 +9,7 @@ import rclpy
 
 from utils.utilities import normalize_angle
 import utils.robot_params as rp
+from utils.utilities import create_quaternion_from_yaw
 
 
 class OdometryNode(Node):
@@ -26,8 +27,12 @@ class OdometryNode(Node):
         self.odom.child_frame_id = "base_link"
         self.odom.pose.pose.position.x = 0.0
         self.odom.pose.pose.position.y = 0.0
-        self.odom.pose.pose.orientation.z = 0.0
+        self.odom.pose.pose.position.z = 0.0
         self.odom.twist.twist.linear.x = 0.0
+        self.odom.twist.twist.linear.y = 0.0
+        
+        self.yaw = 0.0
+        self.odom.pose.pose.orientation = create_quaternion_from_yaw(self.yaw)
         self.odom.twist.twist.angular.z = 0.0
 
         self.max_ticks = 2**15 - 1
@@ -35,14 +40,6 @@ class OdometryNode(Node):
         
         self.clock = Clock()
         self.last_time= self.clock.now()
-
-        if rp.log:
-            self.ticks_log = "/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ticks_log.csv"
-            self.odom_log="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/odom_log.csv"
-            with open(self.ticks_log, "w") as file:
-                file.write("ticks_left,ticks_right\n")
-            with open(self.odom_log, "w") as file:
-                file.write("Timestamp,X,Y,Z,Orientation_Z,Orientation_W\n")
 
         self.get_logger().info("Odometry Initialized")
     
@@ -66,10 +63,6 @@ class OdometryNode(Node):
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
 
-        if rp.log:
-            with open(self.ticks_log, "a") as file:
-                file.write(f"{ticks_left},{ticks_right}\n")
-
         stamp = self.clock.now()
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9
         self.last_time= stamp
@@ -86,20 +79,23 @@ class OdometryNode(Node):
         d = (d_left + d_right) / 2.0
         delta_theta = (d_right - d_left) / rp.wheel_base
 
-        # Compute velocities
-        linear_velocity = d / delta_time
+        delta_x = d * math.cos(self.yaw + delta_theta / 2.0)
+        delta_y = d * math.sin(self.yaw + delta_theta / 2.0)
+
+        x_vel = delta_x / delta_time
+        y_vel = delta_y / delta_time
         angular_velocity = delta_theta / delta_time
 
         self.odom.header.stamp = stamp.to_msg()
-        self.odom.pose.pose.position.x += d * math.cos(self.odom.pose.pose.orientation.z + delta_theta / 2.0)
-        self.odom.pose.pose.position.y += d * math.sin(self.odom.pose.pose.orientation.z + delta_theta / 2.0)
-        self.odom.pose.pose.orientation.z += delta_theta
-        self.odom.pose.pose.orientation.z = normalize_angle(self.odom.pose.pose.orientation.z)
-        self.odom.twist.twist.linear.x = linear_velocity
-        self.odom.twist.twist.angular.z = angular_velocity
+        self.odom.pose.pose.position.x += delta_x
+        self.odom.pose.pose.position.y += delta_y
+        self.odom.twist.twist.linear.x = x_vel
+        self.odom.twist.twist.linear.y = y_vel
 
-        if rp.log:
-            self.log_odom()
+        self.yaw += delta_theta
+        self.yaw = normalize_angle(self.yaw)
+        self.odom.pose.pose.orientation = create_quaternion_from_yaw(self.yaw)
+        self.odom.twist.twist.angular.z = angular_velocity
 
         self.odom_pub.publish(self.odom)
 

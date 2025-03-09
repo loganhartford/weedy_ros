@@ -3,7 +3,6 @@ import busio
 import rclpy
 import lgpio
 import time
-import math
 
 from adafruit_bno08x import (
     BNO_REPORT_ACCELEROMETER,
@@ -15,8 +14,6 @@ from adafruit_bno08x.i2c import BNO08X_I2C
 
 from rclpy.node import Node
 from sensor_msgs.msg import Imu
-
-from utils.utilities import quaternion_multiply
 
 
 class BNO085IMU(Node):
@@ -31,8 +28,6 @@ class BNO085IMU(Node):
         self.reset_pin = 23
         self.chip = lgpio.gpiochip_open(0)
         lgpio.gpio_claim_output(self.chip, self.reset_pin, level=1)
-
-        self.q_offset = [0, 0, -0.7071, 0.7071] # Rotated -90 about z
         
         self.bno = None
         self.init_bno085()
@@ -56,6 +51,17 @@ class BNO085IMU(Node):
                 self.get_logger().error(f"Error initializing BNO085 IMU: {e}")
                 self.reset()
                 time.sleep(1)
+        
+        num_calibrations = 50
+        self.x_offset, self.y_offset = 0, 0
+        for i in range(num_calibrations):
+            accel_x, accel_y, accel_z = self.bno.acceleration
+            self.x_offset += accel_x
+            self.y_offset += accel_y
+            time.sleep(1/self.frequency)
+        self.x_offset /= num_calibrations
+        self.y_offset /= num_calibrations
+        
 
     def publish_imu_data(self):
         msg = Imu()
@@ -65,27 +71,22 @@ class BNO085IMU(Node):
         try:
             # Read accelerometer data (m/s^2)
             accel_x, accel_y, accel_z = self.bno.acceleration
-            msg.linear_acceleration.x = accel_y
-            msg.linear_acceleration.y = -accel_x
+            msg.linear_acceleration.x = accel_x
+            msg.linear_acceleration.y = accel_y
             msg.linear_acceleration.z = accel_z
 
             # Read gyroscope data (rad/s)
             gyro_x, gyro_y, gyro_z = self.bno.gyro
-            msg.angular_velocity.x = gyro_y
-            msg.angular_velocity.y = -gyro_x
+            msg.angular_velocity.x = gyro_x
+            msg.angular_velocity.y = gyro_y
             msg.angular_velocity.z = gyro_z
 
             # Read quaternion rotation data
             quat_i, quat_j, quat_k, quat_real = self.bno.quaternion
-            q_sensor = [quat_i, quat_j, quat_k, quat_real]
-            
-            # Transform sensor quaternion into robot frame
-            q_robot = quaternion_multiply(self.q_offset, q_sensor)
-
-            msg.orientation.x = q_robot[0]
-            msg.orientation.y = q_robot[1]
-            msg.orientation.z = q_robot[2]
-            msg.orientation.w = q_robot[3]
+            msg.orientation.x = quat_i
+            msg.orientation.y = quat_j
+            msg.orientation.z = quat_k
+            msg.orientation.w = quat_real
             
         except Exception as e:
             self.get_logger().error(f"Error reading IMU data: {e}")
