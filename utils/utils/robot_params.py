@@ -9,11 +9,11 @@ import numpy as np
 # --------------------------
 
 
-wheel_radius = 0.115    # m
-wheel_base = 0.4935      # distance between center of wheels
+wheel_radius = 0.228 / 2    # m
+wheel_base = 0.497      # distance between center of wheels
 l_a = wheel_base / 2        # distance from center of robot to wheel
 l_b = 0.09 # Distance from wheel axis to drill - TODO: update this from CAD
-y_axis_max = 245        # mm
+y_axis_max = 245.0        # mm
 caster_offset = 0.485
 
 # --------------------------
@@ -32,7 +32,7 @@ path_max_angular_speed = path_max_linear_speed * 2
 # --------------------------
 # Encoder Specifications
 # --------------------------
-ticks_per_revolution = 64 * (515+40) # 64 ticks per revolution, 515 gear ratio
+ticks_per_revolution = float(64 * 547) # 64 ticks per revolution, 515 gear ratio
 
 # --------------------------
 # Motor Control Parameters

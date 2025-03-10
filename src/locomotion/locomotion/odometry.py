@@ -38,6 +38,13 @@ class OdometryNode(Node):
         self.odom.child_frame_id = "base_link"
         self.reset_odom_callback(None)
 
+        self.total_ticks = [0, 0]
+        log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/total_ticks.csv"
+        if rp.log:
+            self.log_file = log_file
+            with open(self.log_file, "w") as file:
+                file.write("TicksLeft,TicksRight\n")
+
         self.get_logger().info("Odometry Initialized")
     
 
@@ -54,44 +61,43 @@ class OdometryNode(Node):
             self.last_ticks_right = ticks_right
             return None
         
-        delta_left = ticks_left - self.last_ticks_left
-        delta_right = ticks_right - self.last_ticks_right
+        delta_left_ticks = ticks_left - self.last_ticks_left
+        delta_right_ticks = ticks_right - self.last_ticks_right
 
-        # Adjust for rollover of int 16 register
-        delta_left = self.adjust_ticks(delta_left)
-        delta_right = self.adjust_ticks(delta_right)
+        self.total_ticks[0] += delta_left_ticks
+        self.total_ticks[1] += delta_right_ticks
+        if rp.log:
+            with open(self.log_file, "a") as file:
+                file.write(f"{self.total_ticks[0]},{self.total_ticks[1]}\n")
 
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
 
-        # One encoder counts down
-        effective_delta_left = -delta_left
-        effective_delta_right = delta_right
+        delta_left_ticks = -float(self.adjust_ticks(delta_left_ticks)) # counts down going forward
+        delta_right_ticks = float(self.adjust_ticks(delta_right_ticks))
 
         # Wheel angular displacements
-        theta_left = (effective_delta_left / rp.ticks_per_revolution) * (2 * math.pi)
-        theta_right = (effective_delta_right / rp.ticks_per_revolution) * (2 * math.pi)
-        thetas = np.array([[theta_left], 
-                           [theta_right]])
+        w_left = (delta_left_ticks / rp.ticks_per_revolution) * (2 * math.pi) / delta_time
+        w_right = (delta_right_ticks / rp.ticks_per_revolution) * (2 * math.pi) / delta_time
+        wheel_velocities = np.array([[w_left], 
+                           [w_right]])
 
         transform = np.array([[rp.l_a,      rp.l_a],
-                              [rp.l_b,     -rp.l_b],
-                              [-1,          1]])
+                              [0.0,         0.0],
+                              [-1.0,        1.0]])
         scaling = rp.wheel_radius / (2*rp.l_a)
-        displacements = np.matmul(transform, thetas) * scaling
+        displacements = scaling * (transform @ wheel_velocities)
 
-        delta_x_robot = displacements[0][0]
-        delta_y_robot = displacements[1][0]
-        delta_theta = displacements[2][0]
+        vel_x_robot = displacements[0][0]
+        w = displacements[2][0]
 
-        # Convert to global frame
         old_yaw = create_yaw_from_quaternion(self.odom.pose.pose.orientation)
-        delta_x = delta_x_robot * math.cos(old_yaw) - delta_y_robot * math.sin(old_yaw)
-        delta_y = delta_x_robot * math.sin(old_yaw) + delta_y_robot * math.cos(old_yaw)
+        vel_x = vel_x_robot * math.cos(old_yaw)
+        vel_y = vel_x_robot * math.sin(old_yaw)
         
-        vel_x = delta_x / delta_time
-        vel_y = delta_y / delta_time
-        w = delta_theta / delta_time
+        delta_x = vel_x * delta_time
+        delta_y = vel_y * delta_time
+        delta_theta = w * delta_time
 
         new_yaw = old_yaw + delta_theta
         new_yaw = normalize_angle(new_yaw)
