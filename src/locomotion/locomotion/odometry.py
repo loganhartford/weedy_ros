@@ -3,6 +3,7 @@ import numpy as np
 
 from std_msgs.msg import Int32MultiArray, Bool
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Imu
 from rclpy.clock import Clock
 from rclpy.node import Node
 from rclpy.time import Time
@@ -22,6 +23,7 @@ class OdometryNode(Node):
         super().__init__('odometry_node')
 
         self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
+        self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 1)
         self.ticks_sub = self.create_subscription(Int32MultiArray, '/ticks', self.ticks_callback, 1)
         self.reset_odom_sub = self.create_subscription(Bool, '/reset_odom', self.reset_odom_callback, 1)
 
@@ -30,8 +32,12 @@ class OdometryNode(Node):
         self.max_ticks = 2**15 - 1
         self.min_ticks = -2**15
 
+        self.last_imu = None
+
         self.clock = Clock()
         self.last_time= self.clock.now()
+
+        self.imu = None
 
         self.odom = Odometry()
         self.odom.header.frame_id = "odom"
@@ -47,6 +53,8 @@ class OdometryNode(Node):
 
         self.get_logger().info("Odometry Initialized")
     
+    def imu_callback(self, msg):
+        self.imu = msg
 
     def ticks_callback(self, msg):
         ticks_left, ticks_right = msg.data[0], msg.data[1]
@@ -54,12 +62,15 @@ class OdometryNode(Node):
         stamp = self.clock.now()
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9
         self.last_time = stamp
+
+        if self.imu is None:
+            return
         
         # On the first run, load values
         if self.last_ticks_left is None or self.last_ticks_right is None:
             self.last_ticks_left = ticks_left
             self.last_ticks_right = ticks_right
-            return None
+            return
         
         delta_left_ticks = ticks_left - self.last_ticks_left
         delta_right_ticks = ticks_right - self.last_ticks_right
@@ -102,12 +113,17 @@ class OdometryNode(Node):
         new_yaw = old_yaw + delta_theta
         new_yaw = normalize_angle(new_yaw)
 
+         # imu hack
+        new_yaw = create_yaw_from_quaternion(self.imu.orientation)
+        delta_theta = new_yaw - old_yaw
+        w = delta_theta / delta_time
+
         self.odom.header.stamp = stamp.to_msg()
         self.odom.pose.pose.position.x += delta_x
         self.odom.pose.pose.position.y += delta_y
         self.odom.twist.twist.linear.x = vel_x
         self.odom.twist.twist.linear.y = vel_y
-        self.odom.pose.pose.orientation = create_quaternion_from_yaw(new_yaw)
+        self.odom.pose.pose.orientation = self.imu.orientation
         self.odom.twist.twist.angular.z = w
 
         self.odom_pub.publish(self.odom)
