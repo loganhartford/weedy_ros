@@ -3,7 +3,7 @@ import pygame
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from std_msgs.msg import String, UInt8MultiArray
+from std_msgs.msg import String, UInt8MultiArray, Bool
 
 from utils.nucleo_gpio import NucleoGPIO
 import utils.robot_params as rp
@@ -25,6 +25,7 @@ class TeleopNode(Node):
         self.cmd_pub = self.create_publisher(String, '/cmd', 10)
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
+        self.reset_odom_pub = self.create_publisher(Bool, "/reset_odom", 10)
 
         self.last_linear = 0.0
         self.last_angular = 0.0
@@ -101,15 +102,17 @@ class TeleopNode(Node):
                 self.get_logger().error("Emergency STOP!")
                 twist.linear.x = 0.0
                 twist.angular.z = 0.0
-        elif event.button == 5:  # RB button - Send UART command
-            self.uart_pub.publish(package_removal_command(50))
+        elif event.button == 5:  # RB button - Reset Odometry
+            self.reset_odom_pub.publish(Bool(data=True))
         elif event.button == 6:  # Back button (-) - Toggle GPIO reset
             self.toggle_nucleo_reset()
-        elif event.button == 7:  # Start button (+) - Circle turn
-            radius = 0.90  # Choose a radius greater than 0.269 m for pure forward motion
-            twist.linear.x = 0.134
-            twist.angular.z = -twist.linear.x / radius
-            self.cmd_vel_pub.publish(twist)
+        elif event.button == 7:  # Start button (+) - Removal #Circle turn
+            # radius = 0.90  # Choose a radius greater than 0.269 m for pure forward motion
+            # twist.linear.x = 0.134
+            # twist.angular.z = -twist.linear.x / radius
+            # self.cmd_vel_pub.publish(twist)
+            self.uart_pub.publish(package_removal_command(50))
+
         elif event.button == 10:  # Right Stick Press - Drill activation (uses manual_control)
             self.send_manual_command(rp.drill_byte)
 

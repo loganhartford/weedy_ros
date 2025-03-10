@@ -1,11 +1,12 @@
 
 
 x = 1.2
-y = 0.5
+y = 0.4
 
 start_x = 0.0
 stary_y = 0.0
-no_rotate = 10.0 # just some large value
+
+import numpy as np
 
 class Planner:
     
@@ -22,20 +23,23 @@ class Planner:
         #     # [[0.0, 0.0, no_rotate]],
         # ]  
         self.path = [
-            [[start_x + x, stary_y, no_rotate]],
-            [[start_x, stary_y, -1.57]],
-            [[start_x + x, stary_y - y, no_rotate]],
-            [[start_x + x, stary_y - y, 3.14]],
-            [[start_x, stary_y - y, no_rotate]],
-            [[start_x, stary_y - y, 1.57]],
-            [[start_x, stary_y, no_rotate]],
-        ]  
-        self.type = ["travel", "travel", "travel", "travel"]
+            ("travel", [[start_x + x, stary_y, 0.0]]),
+            ("rotate", [[0.0, 0.0, -np.pi/2]]),
+            ("travel", [[start_x + x, stary_y - y, -np.pi/2]]),
+            ("rotate", [[0.0, 0.0, np.pi]]),
+            ("travel", [[start_x, stary_y - y, np.pi]]),
+            ("rotate", [[0.0, 0.0, np.pi/2]]),
+            ("travel", [[start_x, stary_y, np.pi/2]]),  
+            ("rotate", [[0.0, 0.0, 0.0]]),  
+            ]  
         self.index = 0
 
     def plan(self):
         if self.index >= len(self.path):
             return "done", None
-        ret = ["travel", self.path[self.index]]
+        ret = self.path[self.index]
         self.index += 1
         return ret
+
+    def reset(self):
+        self.index = 0

@@ -33,6 +33,7 @@ class DecisionsNode(Node):
         
         self.cmd_vel_publisher = self.create_publisher(Twist, "/cmd_vel", 10)
         self.path_pub = self.create_publisher(Float32MultiArray, "/path", 10)
+        self.rotate_pub = self.create_publisher(Float32MultiArray, "/rotate", 10)
         self.positioning_pub = self.create_publisher(Float32MultiArray, "/position", 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
         self.pose = None
@@ -89,8 +90,10 @@ class DecisionsNode(Node):
             self.start_exploring()
         elif self.state == State.IDLE:
             self.led_ring.off()
-            # self.path_pub.publish(Float32MultiArray())
-            # self.positioning_pub.publish(Float32MultiArray())
+            self.path_pub.publish(Float32MultiArray())
+            self.positioning_pub.publish(Float32MultiArray())
+            self.rotate_pub.publish(Float32MultiArray())
+            self.planner.reset()
             self.publish_twist(0, 0)
         elif self.state == State.ALIGNING:
             self.start_aligning()
@@ -245,30 +248,29 @@ class DecisionsNode(Node):
         msg.angular.z = float(angular)
         self.cmd_vel_publisher.publish(msg)
 
+    def start_path(self):
+        self.path_type, self.path = self.planner.plan()
+        if self.path_type == "travel":
+            self.transition_to_state(State.TRAVEL)
+            path_msg = two_d_array_to_float32_multiarray(self.path)
+            self.path_pub.publish(path_msg)
+        elif self.path_type == "work":
+            self.transition_to_state(State.EXPLORING)
+        elif self.path_type == "rotate":
+            self.transition_to_state(State.TRAVEL)
+            rotate_msg = two_d_array_to_float32_multiarray(self.path)
+            self.rotate_pub.publish(rotate_msg)
+        elif self.path_type == "done":
+            self.transition_to_state(State.IDLE)
+
     def cmd_callback(self, msg: String):
         command = msg.data.lower()
-        if command == "start":
-            self.path_type, self.path = self.planner.plan()
-            if self.path_type == "travel":
-                self.transition_to_state(State.TRAVEL)
-                path_msg = two_d_array_to_float32_multiarray(self.path)
-                self.path_pub.publish(path_msg)
-            elif self.path_type == "work":
-                self.transition_to_state(State.EXPLORING)
+        if command == "start" or command == "path_complete":
+            self.start_path()
         elif command == "stop":
             self.transition_to_state(State.IDLE)
         elif command == "new_pos_reached":
             self.transition_to_state(State.ALIGNING)
-        elif command == "path_complete":
-            self.path_type, self.path = self.planner.plan()
-            if self.path_type == "travel":
-                self.transition_to_state(State.TRAVEL)
-                path_msg = two_d_array_to_float32_multiarray(self.path)
-                self.path_pub.publish(path_msg)
-            elif self.path_type == "work":
-                self.transition_to_state(State.EXPLORING)
-            elif self.path_type == "done":
-                self.transition_to_state(State.IDLE)
         elif self.state == State.WAITING and command == "removal_complete":
             self.transition_to_state(State.EXPLORING)
         elif command == "get_img":

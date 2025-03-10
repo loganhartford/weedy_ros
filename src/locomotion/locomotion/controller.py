@@ -8,7 +8,7 @@ from std_msgs.msg import String, Float32MultiArray
 
 from locomotion.motor_control import MotorController
 from locomotion.pid import PID_ctrl
-from utils.utilities import calculate_linear_error, calculate_angular_error, float32_multi_array_to_two_d_array, calculate_positioning_error
+from utils.utilities import calculate_linear_error, calculate_angular_error, float32_multi_array_to_two_d_array, calculate_positioning_error, calculate_rotation_error
 import utils.robot_params as rp
 
 
@@ -19,12 +19,14 @@ class ControllerNode(Node):
         self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.create_subscription(PoseStamped, '/pose', self.pose_callback, 1)
         self.create_subscription(Float32MultiArray, '/path', self.path_callback, 10)
+        self.create_subscription(Float32MultiArray, '/rotate', self.rotate_callback, 10)
         self.create_subscription(Float32MultiArray, '/position', self.position_callback, 10)
         self.cmd_publisher = self.create_publisher(String, '/cmd', 10)
 
         self.vel_req = Twist()
         self.pose = None
         self.path = []
+        self.rotate = []
         self.new_position = []
 
         self.motor_controller = MotorController()
@@ -53,9 +55,14 @@ class ControllerNode(Node):
        
     def control_loop(self):
         if self.pose is not None and self.new_position != []:
+            # self.get_logger().info("closed_loop_positioning")
             self.closed_loop_positioning()
         elif self.pose is not None and self.path != []:
+            # self.get_logger().info("closed_loop_path_following")
             self.close_loop_path_following()
+        elif self.pose is not None and self.rotate != []:
+            # self.get_logger().info("closed_loop_rotate")
+            self.close_loop_rotatation()
         else:
             self.open_loop_control()
 
@@ -80,25 +87,31 @@ class ControllerNode(Node):
         linear_error = calculate_linear_error(self.pose.pose, self.path[-1])
         angular_error = calculate_angular_error(self.pose.pose, angular_goal)
         
-        if abs(angular_goal[2]) < 2*np.pi:
-            if abs(angular_error) < rp.angular_error_tolerance:
-                self.reset_control()
-                self.get_logger().info("path_complete")
-                self.cmd_publisher.publish(String(data="path_complete"))
-                return
+        if linear_error < rp.pid_linear_path_error_tolerance:
+            # NOTE: may only want to clear history if we are at the end of the path
+            self.reset_control()
+            self.get_logger().info("path_complete")
+            self.cmd_publisher.publish(String(data="path_complete"))
+            return
+    
+        linear_vel = self.path_linear_pid.update([linear_error, self.pose.header.stamp])
+        angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
+        
+        self.motor_controller.set_velocity(linear_vel, angular_vel)
+
+    def close_loop_rotatation(self):
+        self.goal = self.rotate[-1]
+        angular_error = calculate_rotation_error(self.pose.pose, self.goal)
+        
+        if abs(angular_error) < rp.angular_error_tolerance:
+            self.reset_control()
+            self.get_logger().info("path_complete")
+            self.cmd_publisher.publish(String(data="path_complete"))
+            return
             
-            linear_vel = 0
-            angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
-        else:
-            if linear_error < rp.pid_linear_path_error_tolerance:
-                self.reset_control()
-                self.get_logger().info("path_complete")
-                self.cmd_publisher.publish(String(data="path_complete"))
-                return
-        
-            linear_vel = self.path_linear_pid.update([linear_error, self.pose.header.stamp])
-            angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
-        
+        linear_vel = 0
+        angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
+
         self.motor_controller.set_velocity(linear_vel, angular_vel)
 
     def open_loop_control(self):
@@ -121,6 +134,9 @@ class ControllerNode(Node):
     
     def path_callback(self, msg):
         self.path = float32_multi_array_to_two_d_array(msg)
+    
+    def rotate_callback(self, msg):
+        self.rotate = float32_multi_array_to_two_d_array(msg)
 
     def pose_callback(self, msg):
         self.pose = msg
@@ -128,8 +144,11 @@ class ControllerNode(Node):
     def reset_control(self):
         self.positioning_linear_pid.clear_history()
         self.positioning_angular_pid.clear_history()
+        self.path_linear_pid.clear_history()
+        self.path_angular_pid.clear_history()
         self.path = []
         self.new_position = []
+        self.rotate = []
         self.motor_controller.set_velocity(0, 0)
 
     def destroy_node(self):

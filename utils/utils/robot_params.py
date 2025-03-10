@@ -43,7 +43,7 @@ min_duty_cycle = 5
 # Feature Constraints
 # --------------------------
 pid_linear_pos_error_tolerance = 0.001  # m
-pid_linear_path_error_tolerance = 0.001  # m
+pid_linear_path_error_tolerance = 0.05  # m
 angular_error_tolerance = 0.02       # rad, 1 degree
 y_axis_alignment_tolerance = 0.01   # m
 

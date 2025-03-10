@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-from std_msgs.msg import Int32MultiArray
+from std_msgs.msg import Int32MultiArray, Bool
 from nav_msgs.msg import Odometry
 from rclpy.clock import Clock
 from rclpy.node import Node
@@ -23,27 +23,20 @@ class OdometryNode(Node):
 
         self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
         self.ticks_sub = self.create_subscription(Int32MultiArray, '/ticks', self.ticks_callback, 1)
+        self.reset_odom_sub = self.create_subscription(Bool, '/reset_odom', self.reset_odom_callback, 1)
 
         self.last_ticks_left = None
         self.last_ticks_right = None
+        self.max_ticks = 2**15 - 1
+        self.min_ticks = -2**15
+
+        self.clock = Clock()
+        self.last_time= self.clock.now()
 
         self.odom = Odometry()
         self.odom.header.frame_id = "odom"
         self.odom.child_frame_id = "base_link"
-        self.odom.pose.pose.position.x = 0.0
-        self.odom.pose.pose.position.y = 0.0
-        self.odom.pose.pose.position.z = 0.0
-        self.odom.twist.twist.linear.x = 0.0
-        self.odom.twist.twist.linear.y = 0.0
-        
-        self.odom.pose.pose.orientation = create_quaternion_from_yaw(0.0)
-        self.odom.twist.twist.angular.z = 0.0
-
-        self.max_ticks = 2**15 - 1
-        self.min_ticks = -2**15
-        
-        self.clock = Clock()
-        self.last_time= self.clock.now()
+        self.reset_odom_callback(None)
 
         self.get_logger().info("Odometry Initialized")
     
@@ -110,6 +103,18 @@ class OdometryNode(Node):
         self.odom.twist.twist.linear.y = vel_y
         self.odom.pose.pose.orientation = create_quaternion_from_yaw(new_yaw)
         self.odom.twist.twist.angular.z = w
+
+        self.odom_pub.publish(self.odom)
+    
+    def reset_odom_callback(self, msg):
+        self.odom.header.stamp = self.clock.now().to_msg()
+        self.odom.pose.pose.position.x = 0.0
+        self.odom.pose.pose.position.y = 0.0
+        self.odom.pose.pose.position.z = 0.0
+        self.odom.pose.pose.orientation = create_quaternion_from_yaw(0.0)
+        self.odom.twist.twist.linear.x = 0.0
+        self.odom.twist.twist.linear.y = 0.0
+        self.odom.twist.twist.angular.z = 0.0
 
         self.odom_pub.publish(self.odom)
 
