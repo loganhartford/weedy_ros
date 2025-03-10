@@ -120,9 +120,6 @@ class DecisionsNode(Node):
     def start_exploring(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
 
-        self.path = two_d_array_to_float32_multiarray(self.planner.plan())
-        self.path_pub.publish(self.path)
-
         if self.explore_timer:
             self.explore_timer.cancel()
         self.explore_timer = self.create_timer(0.1, self.explore_callback)
