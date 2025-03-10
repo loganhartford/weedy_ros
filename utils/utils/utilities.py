@@ -36,11 +36,11 @@ def calculate_linear_error(pose, goal):
 
 def calculate_angular_error(pose, goal):
     if goal[2] < 2*np.pi:
-        return goal[2] - pose.orientation.z
+        angular_error = goal[2] - pose.orientation.z
     else:
         angular_error = atan2(goal[1] - pose.position.y, goal[0] - pose.position.x) - pose.orientation.z
-        angular_error = normalize_angle(angular_error)
 
+    angular_error = normalize_angle(angular_error)
     return angular_error
 
 def normalize_angle(angle):

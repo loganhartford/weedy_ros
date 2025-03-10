@@ -7,9 +7,14 @@ import numpy as np
 # --------------------------
 # Robot Physical Dimensions
 # --------------------------
+
+
 wheel_radius = 0.115    # m
-wheel_base = 0.538      # m
+wheel_base = 0.4935      # distance between center of wheels
+l_a = wheel_base / 2        # distance from center of robot to wheel
+l_b = 0.09 # Distance from wheel axis to drill - TODO: update this from CAD
 y_axis_max = 245        # mm
+caster_offset = 0.485
 
 # --------------------------
 # Motor Specifications
@@ -27,7 +32,7 @@ path_max_angular_speed = path_max_linear_speed * 2
 # --------------------------
 # Encoder Specifications
 # --------------------------
-ticks_per_revolution = 64 * 533 # 64 ticks per revolution, 515 gear ratio
+ticks_per_revolution = 64 * (515+40) # 64 ticks per revolution, 515 gear ratio
 
 # --------------------------
 # Motor Control Parameters
@@ -38,14 +43,14 @@ min_duty_cycle = 5
 # Feature Constraints
 # --------------------------
 pid_linear_pos_error_tolerance = 0.001  # m
-pid_linear_path_error_tolerance = 0.05  # m
-angular_error_tolerance = 0.15       # rad, 1 degree
+pid_linear_path_error_tolerance = 0.001  # m
+angular_error_tolerance = 0.02       # rad, 1 degree
 y_axis_alignment_tolerance = 0.01   # m
 
 # --------------------------
 # Logging Configuration
 # --------------------------
-log = False  # Set to True to save data to CSV files
+log = True  # Set to True to save data to CSV files
 
 # --------------------------
 # Homography Calibration Points

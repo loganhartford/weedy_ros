@@ -44,7 +44,8 @@ class MotorController:
 
         if closed_loop:
             linear_x = max(min(linear_x, rp.path_max_linear_speed), -rp.path_max_linear_speed)
-        
+            angular_z = max(min(angular_z, rp.path_max_angular_speed), -rp.path_max_angular_speed)
+
         left_wheel_velocity = linear_x - (angular_z * rp.wheel_base / 2)
         right_wheel_velocity = linear_x + (angular_z * rp.wheel_base / 2)
 

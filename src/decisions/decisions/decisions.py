@@ -89,8 +89,8 @@ class DecisionsNode(Node):
             self.start_exploring()
         elif self.state == State.IDLE:
             self.led_ring.off()
-            self.path_pub.publish(Float32MultiArray())
-            self.positioning_pub.publish(Float32MultiArray())
+            # self.path_pub.publish(Float32MultiArray())
+            # self.positioning_pub.publish(Float32MultiArray())
             self.publish_twist(0, 0)
         elif self.state == State.ALIGNING:
             self.start_aligning()
@@ -187,7 +187,6 @@ class DecisionsNode(Node):
 
         if self.removal_in_process:
             self.led_ring.step_animation()
-
 
     def get_boxes(self):
         result = self.cv_model.run_inference(save_data=True)
