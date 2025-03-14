@@ -35,7 +35,7 @@ max_linear_speed = (2 * math.pi * wheel_radius) * rpm / 60 # m/s
 max_angular_speed = 2*max_linear_speed # rad/s
 ol_speed_gain = 0.05
 cl_speed_gain = 0.05
-path_max_linear_speed = 0.075
+path_max_linear_speed = 0.15
 path_max_angular_speed = path_max_linear_speed * 2
 
 
@@ -53,14 +53,14 @@ min_duty_cycle = 5
 # Feature Constraints
 # --------------------------
 pid_linear_pos_error_tolerance = 0.001  # m
-pid_linear_path_error_tolerance = 0.05  # m
+pid_linear_path_error_tolerance = 0.1  # m
 angular_error_tolerance = 0.087       # rad, 5 degree
 y_axis_alignment_tolerance = 0.01   # m
 
 # --------------------------
 # Logging Configuration
 # --------------------------
-log = True  # Set to True to save data to CSV files
+log = False  # Set to True to save data to CSV files
 
 # --------------------------
 # Homography Calibration Points

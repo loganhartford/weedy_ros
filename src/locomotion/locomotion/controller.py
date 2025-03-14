@@ -25,6 +25,7 @@ class ControllerNode(Node):
 
         self.vel_req = Twist()
         self.pose = None
+        self.position_from_pose = None
         self.path = []
         self.rotate = []
         self.new_position = []
@@ -64,9 +65,8 @@ class ControllerNode(Node):
             self.open_loop_control()
 
     def closed_loop_positioning(self):
-        linear_error = calculate_positioning_error(self.pose.pose, self.new_position[-1])
-        angular_error = calculate_angular_error(self.pose.pose, self.new_position[-1])
-
+        linear_error = calculate_positioning_error(self.position_from_pose.pose, self.pose.pose, self.new_position[-1][0])
+        
         if abs(linear_error) < rp.pid_linear_pos_error_tolerance:
             self.reset_control()
             self.get_logger().info("new_pos_reached")
@@ -74,7 +74,7 @@ class ControllerNode(Node):
             return
 
         linear_vel = self.positioning_linear_pid.update([linear_error, self.pose.header.stamp])
-        angular_vel = self.positioning_angular_pid.update([angular_error, self.pose.header.stamp])
+        angular_vel = 0.0 
 
         self.motor_controller.set_velocity(linear_vel, angular_vel)
 
@@ -128,6 +128,7 @@ class ControllerNode(Node):
 
     def position_callback(self, msg):
         self.new_position = float32_multi_array_to_two_d_array(msg)
+        self.position_from_pose = self.pose
     
     def path_callback(self, msg):
         self.path = float32_multi_array_to_two_d_array(msg)

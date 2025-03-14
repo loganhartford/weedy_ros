@@ -26,8 +26,13 @@ def quaternion_multiply(q1, q2):
         w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
     ]
 
-def calculate_positioning_error(pose, goal):
-    return goal[0] - pose.position.x
+def calculate_positioning_error(from_pose, current_pose, goal):
+    displacement = np.sqrt((from_pose.position.x - current_pose.position.x) ** 2 + (from_pose.position.y - current_pose.position.y) ** 2)
+    
+    if goal > 0:
+        return goal - displacement
+    else:
+        return -(abs(goal) - displacement)
 
 def calculate_linear_error(pose, goal):
     linear_error = sqrt((goal[0] - pose.position.x) ** 2 + (goal[1] - pose.position.y) ** 2)

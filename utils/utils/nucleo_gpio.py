@@ -8,6 +8,14 @@ class NucleoGPIO:
         self.start_pin = 26
         self.chip = None
 
+    def ack_nucelo(self):
+        try:
+            lgpio.gpio_write(self.chip, self.start_pin, 0)
+            time.sleep(0.2)
+            lgpio.gpio_write(self.chip, self.start_pin, 1)
+        except Exception as e:
+            raise GPIOError(f"Error toggling reset: {e}")
+
     def enable_nucelo(self):
         try:
             self._open()

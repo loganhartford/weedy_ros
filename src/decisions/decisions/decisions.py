@@ -81,6 +81,7 @@ class DecisionsNode(Node):
             State.WAITING: [State.IDLE, State.EXPLORING, State.ALIGNING],
         }
         self.state = State.IDLE
+        self.state_timer_period = 0.1
         
         self.get_logger().info("Decisions Initialized")
         self.request_battery_voltage()
@@ -128,14 +129,8 @@ class DecisionsNode(Node):
         self.on_state_entry()
 
     def start_travel(self):
-        self.led_ring.set_color(255, 255, 255, 0.0)
-
-        path_msg = two_d_array_to_float32_multiarray(self.path)
-        if self.path_type == "travel":
-            self.path_pub.publish(path_msg)
-        elif self.path_type == "rotate":
-            self.rotate_pub.publish(path_msg)
-
+        pass
+            
     def start_exploring(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
 
@@ -144,7 +139,7 @@ class DecisionsNode(Node):
 
         if self.explore_timer:
             self.explore_timer.cancel()
-        self.explore_timer = self.create_timer(0.1, self.explore_callback)
+        self.explore_timer = self.create_timer(self.state_timer_period, self.explore_callback)
 
     def explore_callback(self):
         if self.state != State.EXPLORING:
@@ -162,9 +157,9 @@ class DecisionsNode(Node):
         
         self.path_pub.publish(Float32MultiArray())
 
-        # if self.align_timer:
-        #     self.align_timer.cancel()
-        # self.align_timer = self.create_timer(0.1, self.align_callback)
+        if self.align_timer:
+            self.align_timer.cancel()
+        self.align_timer = self.create_timer(self.state_timer_period, self.align_callback)
 
     def align_callback(self):
         if self.state != State.ALIGNING:
@@ -180,16 +175,14 @@ class DecisionsNode(Node):
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
         if abs(best_point[0] / 1000.0) < rp.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
-            # self.uart_pub.publish(package_removal_command(best_point[1]))
+            self.uart_pub.publish(package_removal_command(best_point[1]))
             self.align_timer.cancel()
             self.transition_to_state(State.WAITING)
             return
 
-        x = self.pose.pose.position.x + best_point[0] / 1000.0
-        y = self.pose.pose.position.y
-        z = self.pose.pose.orientation.z
-        new_position = two_d_array_to_float32_multiarray([[x, y, z]])
-        self.get_logger().info(f"Aligning to ({x}, {y}, {z})")
+        displacement = best_point[0] / 1000.0
+        new_position = two_d_array_to_float32_multiarray([[displacement, 0.0, 0.0]])
+        
         self.positioning_pub.publish(new_position)
         
         self.align_timer.cancel()
@@ -199,7 +192,7 @@ class DecisionsNode(Node):
         self.wait_start_time = self.get_clock().now()
         if self.wait_timer:
             self.wait_timer.cancel()
-        self.wait_timer = self.create_timer(0.1, self.wait_callback)
+        self.wait_timer = self.create_timer(self.state_timer_period, self.wait_callback)
 
     def wait_callback(self):
         if self.state != State.WAITING:
@@ -211,7 +204,7 @@ class DecisionsNode(Node):
             self.led_ring.step_animation()
 
     def get_boxes(self):
-        result = self.cv_model.run_inference(save_data=True)
+        result = self.cv_model.run_inference(save_data=False)
         if result is None:
             return None
 
@@ -220,7 +213,7 @@ class DecisionsNode(Node):
         return result.boxes if len(result.boxes) > 0 else None
 
     def get_keypoints(self):
-        result = self.cv_model.run_inference(save_data=True)
+        result = self.cv_model.run_inference(save_data=False)
         if result is None or not result.keypoints:
             return None
 
@@ -269,9 +262,17 @@ class DecisionsNode(Node):
 
     def start_path(self):
         self.path_type, self.path = self.planner.plan()
-        if self.path_type == "travel" or self.path_type == "rotate":
+        path_msg = two_d_array_to_float32_multiarray(self.path)
+        
+        if self.path_type == "travel":
+            self.led_ring.set_color(255, 255, 255, 0.0)
+            self.path_pub.publish(path_msg)
+            self.transition_to_state(State.TRAVEL)
+        elif self.path_type == "rotate":
+            self.rotate_pub.publish(path_msg)
             self.transition_to_state(State.TRAVEL)
         elif self.path_type == "work":
+            self.path_pub.publish(path_msg)
             self.transition_to_state(State.EXPLORING)
         elif self.path_type == "done":
             self.transition_to_state(State.IDLE)

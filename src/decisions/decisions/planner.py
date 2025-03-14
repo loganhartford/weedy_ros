@@ -1,9 +1,9 @@
 
 
-x = 1.2
-y = 0.6
+x = 1.4
+y = 0.5
 
-start_x = 0.0
+start_x = 0.8
 start_y = 0.0
 
 import numpy as np
@@ -23,17 +23,33 @@ class Planner:
         #     ("rotate", [[0.0, 0.0, 0.0]]),  
         #     ]  
 
-        # CCW Loop
+        # # CCW Loop
+        # self.path = [
+        #     ("work", [[start_x + x, start_y, 0.0]]),
+        #     ("rotate", [[0.0, 0.0, np.pi/2]]),
+        #     ("work", [[start_x + x, start_y + y, -np.pi/2]]),
+        #     ("rotate", [[0.0, 0.0, np.pi]]),
+        #     ("work", [[start_x, start_y + y, np.pi]]),
+        #     ("rotate", [[0.0, 0.0, -np.pi/2]]),
+        #     ("work", [[start_x, start_y, -np.pi/2]]),  
+        #     ("rotate", [[0.0, 0.0, 0.0]]), 
+        #     ("done", [[start_x, start_y, 0.0]]),
+        #     ]  
+
+        # CCW Loop + Travel
         self.path = [
+            ("travel", [[start_x, start_y, 0.0]]),
             ("work", [[start_x + x, start_y, 0.0]]),
-            ("done", [[start_x + x, start_y, 0.0]]),
-            # ("rotate", [[0.0, 0.0, np.pi/2]]),
-            # ("work", [[start_x + x, start_y + y, -np.pi/2]]),
-            # ("rotate", [[0.0, 0.0, np.pi]]),
-            # ("work", [[start_x, start_y + y, np.pi]]),
-            # ("rotate", [[0.0, 0.0, -np.pi/2]]),
-            # ("work", [[start_x, start_y, -np.pi/2]]),  
-            # ("rotate", [[0.0, 0.0, 0.0]]),  
+            ("rotate", [[0.0, 0.0, np.pi/2]]),
+            ("work", [[start_x + x, start_y + y, np.pi/2]]),
+            ("rotate", [[0.0, 0.0, np.pi]]),
+            ("work", [[start_x, start_y + y, np.pi]]),
+            ("rotate", [[0.0, 0.0, -np.pi/2]]),
+            ("work", [[start_x, start_y, -np.pi/2]]),  
+            ("rotate", [[0.0, 0.0, np.pi]]),
+            ("travel", [[0.0, 0.0, np.pi]]),
+            ("rotate", [[0.0, 0.0, 0.0]]),
+            ("done", [[0.0, 0.0, 0.0]]),
             ]  
         
         # self.path = [
