@@ -32,7 +32,7 @@ path_max_angular_speed = path_max_linear_speed * 2
 # --------------------------
 # Encoder Specifications
 # --------------------------
-ticks_per_revolution = float(64 * 547) # 64 ticks per revolution, 515 gear ratio
+ticks_per_revolution = 64 * 547.5 # 64 ticks per revolution, 515 gear ratio
 
 # --------------------------
 # Motor Control Parameters
