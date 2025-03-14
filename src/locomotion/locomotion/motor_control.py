@@ -36,15 +36,15 @@ class MotorController:
         else:
             gain = rp.ol_speed_gain
 
-        self.last_angular_vel = round(self.last_angular_vel + gain * (angular_z - self.last_angular_vel),4)
-        self.last_linear_vel = round(self.last_linear_vel + gain * (linear_x - self.last_linear_vel), 4)
-
-        angular_z = self.last_angular_vel
-        linear_x = self.last_linear_vel
+        linear_x = round(self.last_linear_vel + gain * (linear_x - self.last_linear_vel), 4)
+        angular_z = round(self.last_angular_vel + gain * (angular_z - self.last_angular_vel),4)
 
         if closed_loop:
             linear_x = max(min(linear_x, rp.path_max_linear_speed), -rp.path_max_linear_speed)
             angular_z = max(min(angular_z, rp.path_max_angular_speed), -rp.path_max_angular_speed)
+
+        self.last_angular_vel = angular_z
+        self.last_linear_vel = linear_x
 
         left_wheel_velocity = linear_x - (angular_z * rp.wheel_base / 2)
         right_wheel_velocity = linear_x + (angular_z * rp.wheel_base / 2)
@@ -69,7 +69,7 @@ class MotorController:
 
         if rp.log:
             with open(self.log_file, "a") as file:
-                file.write(f"{left_duty},{right_duty}\n")
+                file.write(f"{linear_x},{angular_z},{left_duty},{right_duty}\n")
 
         self.left_motor.change_duty_cycle(left_duty)
         self.right_motor.change_duty_cycle(right_duty)

@@ -35,7 +35,7 @@ max_linear_speed = (2 * math.pi * wheel_radius) * rpm / 60 # m/s
 max_angular_speed = 2*max_linear_speed # rad/s
 ol_speed_gain = 0.05
 cl_speed_gain = 0.05
-path_max_linear_speed = 0.15
+path_max_linear_speed = 0.075
 path_max_angular_speed = path_max_linear_speed * 2
 
 

@@ -11,8 +11,12 @@ from std_msgs.msg import Float32, Float32MultiArray, MultiArrayLayout, MultiArra
 
 from utils.nucleo_gpio import NucleoGPIO
 from utils.neopixel_ring import NeoPixelRing
-from decisions.yolo_model import YOLOModel
-from decisions.planner import Planner
+try:
+    from decisions.yolo_model import YOLOModel
+    from decisions.planner import Planner
+except:
+    from yolo_model import YOLOModel
+    from planner import Planner
 import utils.robot_params as rp
 from utils.utilities import two_d_array_to_float32_multiarray, package_removal_command
 
@@ -41,7 +45,11 @@ class DecisionsNode(Node):
         # Hardware and utility components
         self.led_ring = NeoPixelRing()
         
-        self.cv_model = YOLOModel()
+        try:
+            self.cv_model = YOLOModel()
+            self.cv_model.run_inference(save_result=True)
+        except Exception as e:
+            self.get_logger().error(f"Error initializing YOLO model: {e}")
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5
         
@@ -99,6 +107,8 @@ class DecisionsNode(Node):
             self.start_aligning()
         elif self.state == State.WAITING:
             self.start_waiting()
+        elif self.state == State.TRAVEL:
+            self.start_travel()
 
     def transition_to_state(self, new_state: State):
         if new_state == self.state:
@@ -117,8 +127,20 @@ class DecisionsNode(Node):
         self.state = new_state
         self.on_state_entry()
 
+    def start_travel(self):
+        self.led_ring.set_color(255, 255, 255, 0.0)
+
+        path_msg = two_d_array_to_float32_multiarray(self.path)
+        if self.path_type == "travel":
+            self.path_pub.publish(path_msg)
+        elif self.path_type == "rotate":
+            self.rotate_pub.publish(path_msg)
+
     def start_exploring(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
+
+        path_msg = two_d_array_to_float32_multiarray(self.path)
+        self.path_pub.publish(path_msg)
 
         if self.explore_timer:
             self.explore_timer.cancel()
@@ -140,9 +162,9 @@ class DecisionsNode(Node):
         
         self.path_pub.publish(Float32MultiArray())
 
-        if self.align_timer:
-            self.align_timer.cancel()
-        self.align_timer = self.create_timer(0.1, self.align_callback)
+        # if self.align_timer:
+        #     self.align_timer.cancel()
+        # self.align_timer = self.create_timer(0.1, self.align_callback)
 
     def align_callback(self):
         if self.state != State.ALIGNING:
@@ -167,7 +189,7 @@ class DecisionsNode(Node):
         y = self.pose.pose.position.y
         z = self.pose.pose.orientation.z
         new_position = two_d_array_to_float32_multiarray([[x, y, z]])
-
+        self.get_logger().info(f"Aligning to ({x}, {y}, {z})")
         self.positioning_pub.publish(new_position)
         
         self.align_timer.cancel()
@@ -247,16 +269,10 @@ class DecisionsNode(Node):
 
     def start_path(self):
         self.path_type, self.path = self.planner.plan()
-        if self.path_type == "travel":
+        if self.path_type == "travel" or self.path_type == "rotate":
             self.transition_to_state(State.TRAVEL)
-            path_msg = two_d_array_to_float32_multiarray(self.path)
-            self.path_pub.publish(path_msg)
         elif self.path_type == "work":
             self.transition_to_state(State.EXPLORING)
-        elif self.path_type == "rotate":
-            self.transition_to_state(State.TRAVEL)
-            rotate_msg = two_d_array_to_float32_multiarray(self.path)
-            self.rotate_pub.publish(rotate_msg)
         elif self.path_type == "done":
             self.transition_to_state(State.IDLE)
 

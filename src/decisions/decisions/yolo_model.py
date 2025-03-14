@@ -20,7 +20,7 @@ class YOLOModel:
             img = self.get_img()
             if save_data:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                PILImage.fromarray(img).save(f"/mnt/shared/weedy_ros/src/decisions/decisions/img/train/{timestamp}.jpg")
+                img.save(f"/mnt/shared/weedy_ros/src/decisions/decisions/img/train/{timestamp}.jpg")
         except CameraError:
             return None
 
@@ -40,7 +40,7 @@ class YOLOModel:
             response = requests.get(self.image_url)
             response.raise_for_status()
             image = PILImage.open(BytesIO(response.content))
-            return np.array(image)
+            return image
         except requests.exceptions.RequestException as e:
             raise CameraError("Error fetching image from camera") from e
 
@@ -54,3 +54,8 @@ class YOLOModel:
             image.save(filename)
         except requests.exceptions.RequestException as e:
             raise CameraError("Error fetching image from camera") from e
+
+if __name__ == "__main__":
+    model = YOLOModel()
+    model.run_inference(save_data=True, save_result=True)
+    model.capture_and_save_image()

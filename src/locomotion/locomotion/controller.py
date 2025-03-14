@@ -55,13 +55,10 @@ class ControllerNode(Node):
        
     def control_loop(self):
         if self.pose is not None and self.new_position != []:
-            # self.get_logger().info("closed_loop_positioning")
             self.closed_loop_positioning()
         elif self.pose is not None and self.path != []:
-            # self.get_logger().info("closed_loop_path_following")
             self.close_loop_path_following()
         elif self.pose is not None and self.rotate != []:
-            # self.get_logger().info("closed_loop_rotate")
             self.close_loop_rotatation()
         else:
             self.open_loop_control()
@@ -134,6 +131,7 @@ class ControllerNode(Node):
     
     def path_callback(self, msg):
         self.path = float32_multi_array_to_two_d_array(msg)
+       
     
     def rotate_callback(self, msg):
         self.rotate = float32_multi_array_to_two_d_array(msg)

@@ -26,13 +26,14 @@ class Planner:
         # CCW Loop
         self.path = [
             ("work", [[start_x + x, start_y, 0.0]]),
-            ("rotate", [[0.0, 0.0, np.pi/2]]),
-            ("work", [[start_x + x, start_y + y, -np.pi/2]]),
-            ("rotate", [[0.0, 0.0, np.pi]]),
-            ("work", [[start_x, start_y + y, np.pi]]),
-            ("rotate", [[0.0, 0.0, -np.pi/2]]),
-            ("work", [[start_x, start_y, -np.pi/2]]),  
-            ("rotate", [[0.0, 0.0, 0.0]]),  
+            ("done", [[start_x + x, start_y, 0.0]]),
+            # ("rotate", [[0.0, 0.0, np.pi/2]]),
+            # ("work", [[start_x + x, start_y + y, -np.pi/2]]),
+            # ("rotate", [[0.0, 0.0, np.pi]]),
+            # ("work", [[start_x, start_y + y, np.pi]]),
+            # ("rotate", [[0.0, 0.0, -np.pi/2]]),
+            # ("work", [[start_x, start_y, -np.pi/2]]),  
+            # ("rotate", [[0.0, 0.0, 0.0]]),  
             ]  
         
         # self.path = [
