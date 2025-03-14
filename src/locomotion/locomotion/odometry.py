@@ -29,8 +29,7 @@ class OdometryNode(Node):
 
         self.last_ticks_left = None
         self.last_ticks_right = None
-        self.max_ticks = 2**15 - 1
-        self.min_ticks = -2**15
+        self.max_ticks = 2**16
 
         self.last_imu = None
 
@@ -75,17 +74,17 @@ class OdometryNode(Node):
         delta_left_ticks = ticks_left - self.last_ticks_left
         delta_right_ticks = ticks_right - self.last_ticks_right
 
-        self.total_ticks[0] += delta_left_ticks
-        self.total_ticks[1] += delta_right_ticks
-        if rp.log:
-            with open(self.log_file, "a") as file:
-                file.write(f"{self.total_ticks[0]},{self.total_ticks[1]}\n")
-
         self.last_ticks_left = ticks_left
         self.last_ticks_right = ticks_right
 
         delta_left_ticks = -float(self.adjust_ticks(delta_left_ticks)) # counts down going forward
         delta_right_ticks = float(self.adjust_ticks(delta_right_ticks))
+
+        self.total_ticks[0] += delta_left_ticks
+        self.total_ticks[1] += delta_right_ticks
+        if rp.log:
+            with open(self.log_file, "a") as file:
+                file.write(f"{self.total_ticks[0]},{self.total_ticks[1]}\n")
 
         # Wheel angular displacements
         w_left = (delta_left_ticks / rp.ticks_per_revolution) * (2 * math.pi) / delta_time
@@ -149,10 +148,10 @@ class OdometryNode(Node):
             file.write(f"{timestamp},{pos.x},{pos.y},{pos.z},{orient.z},{orient.w}\n")
 
     def adjust_ticks(self, delta):
-        if delta > self.max_ticks / 2:
-            return delta - (self.max_ticks - self.min_ticks + 1)
-        elif delta < self.min_ticks / 2:
-            return delta + (self.max_ticks - self.min_ticks + 1)
+        if delta > self.max_ticks / 2: # Counting down case
+            return delta - self.max_ticks
+        elif delta < -(self.max_ticks / 2): # Counting up case
+            return delta + self.max_ticks
         return delta
 
 
