@@ -23,10 +23,12 @@ class OdometryNode(Node):
         super().__init__('odometry_node')
 
         self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
-        self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 1)
         self.ticks_sub = self.create_subscription(Int32MultiArray, '/ticks', self.ticks_callback, 1)
         self.reset_odom_sub = self.create_subscription(Bool, '/reset_odom', self.reset_odom_callback, 1)
 
+        if rp.filter_type == rp.FilterType.ODOMETRY_IMU:
+            self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 1)
+        
         self.last_ticks_left = None
         self.last_ticks_right = None
         self.max_ticks = 2**16
@@ -62,7 +64,7 @@ class OdometryNode(Node):
         delta_time = (stamp - self.last_time).nanoseconds * 1e-9
         self.last_time = stamp
 
-        if self.imu is None:
+        if self.imu is None and rp.filter_type == rp.FilterType.ODOMETRY_IMU:
             return
         
         # On the first run, load values
@@ -112,17 +114,18 @@ class OdometryNode(Node):
         new_yaw = old_yaw + delta_theta
         new_yaw = normalize_angle(new_yaw)
 
-         # imu hack
-        new_yaw = create_yaw_from_quaternion(self.imu.orientation)
-        delta_theta = new_yaw - old_yaw
-        w = delta_theta / delta_time
+        # imu hack
+        if rp.filter_type == rp.FilterType.ODOMETRY_IMU:
+            new_yaw = create_yaw_from_quaternion(self.imu.orientation)
+            delta_theta = new_yaw - old_yaw
+            w = delta_theta / delta_time
 
         self.odom.header.stamp = stamp.to_msg()
         self.odom.pose.pose.position.x += delta_x
         self.odom.pose.pose.position.y += delta_y
         self.odom.twist.twist.linear.x = vel_x
         self.odom.twist.twist.linear.y = vel_y
-        self.odom.pose.pose.orientation = self.imu.orientation
+        self.odom.pose.pose.orientation = create_quaternion_from_yaw(new_yaw)
         self.odom.twist.twist.angular.z = w
 
         self.odom_pub.publish(self.odom)

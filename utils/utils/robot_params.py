@@ -4,6 +4,16 @@
 import math
 import numpy as np
 
+from enum import Enum, auto
+
+class FilterType(Enum):
+    ODOMETRY = auto()
+    ODOMETRY_IMU = auto()
+    CUSTOM_EKF = auto()
+    ROS_EKF = auto()
+
+filter_type = FilterType.ODOMETRY_IMU
+
 # --------------------------
 # Robot Physical Dimensions
 # --------------------------
@@ -23,8 +33,8 @@ rpm = 23                               # Rated speed
 rated_speed = rpm * 2 * math.pi / 60.0  # rad/s
 max_linear_speed = (2 * math.pi * wheel_radius) * rpm / 60 # m/s
 max_angular_speed = 2*max_linear_speed # rad/s
-ol_speed_gain = 0.5
-cl_speed_gain = 0.1
+ol_speed_gain = 0.05
+cl_speed_gain = 0.05
 path_max_linear_speed = 0.15
 path_max_angular_speed = path_max_linear_speed * 2
 
@@ -44,7 +54,7 @@ min_duty_cycle = 5
 # --------------------------
 pid_linear_pos_error_tolerance = 0.001  # m
 pid_linear_path_error_tolerance = 0.05  # m
-angular_error_tolerance = 0.02       # rad, 1 degree
+angular_error_tolerance = 0.087       # rad, 5 degree
 y_axis_alignment_tolerance = 0.01   # m
 
 # --------------------------

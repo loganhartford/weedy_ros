@@ -14,6 +14,7 @@ from adafruit_bno08x.i2c import BNO08X_I2C
 
 from rclpy.node import Node
 from sensor_msgs.msg import Imu
+from std_msgs.msg import Bool
 
 
 class BNO085IMU(Node):
@@ -21,6 +22,7 @@ class BNO085IMU(Node):
         super().__init__('bno085_imu_node')
         
         self.imu_publisher = self.create_publisher(Imu, '/imu', 10)
+        self.odom_reset_sub = self.create_subscription(Bool, '/reset_odom', self.reset_odom_callback, 1)
         
         self.frequency = 50
         self.frame_id = "imu_link"
@@ -37,6 +39,11 @@ class BNO085IMU(Node):
 
         self.get_logger().info("BNO085 IMU Initialized")
     
+    def re_init_imu(self):
+        self.reset()
+        self.bno = None
+        self.init_bno085()
+
     def init_bno085(self):
         while self.bno is None:
             try:
@@ -50,7 +57,6 @@ class BNO085IMU(Node):
                 self.bno = None
                 self.get_logger().error(f"Error initializing BNO085 IMU: {e}")
                 self.reset()
-                time.sleep(1)
         
         num_calibrations = 50
         self.x_offset, self.y_offset = 0, 0
@@ -90,7 +96,7 @@ class BNO085IMU(Node):
             
         except Exception as e:
             self.get_logger().error(f"Error reading IMU data: {e}")
-            self.reset()
+            self.re_init_imu()
             return
         
         # Set covariance arrays (using -1 in the first element to indicate unknown covariance)
@@ -100,11 +106,15 @@ class BNO085IMU(Node):
 
         self.imu_publisher.publish(msg)
     
+    def reset_odom_callback(self, msg):
+        if msg.data:
+            self.re_init_imu()
+
     def reset(self):
         lgpio.gpio_write(self.chip, self.reset_pin, 0)
-        time.sleep(0.1)
+        time.sleep(0.5)
         lgpio.gpio_write(self.chip, self.reset_pin, 1)
-        time.sleep(0.1)
+        time.sleep(0.5)
 
 def main(args=None):
     rclpy.init(args=args)
