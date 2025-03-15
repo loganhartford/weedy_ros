@@ -10,6 +10,7 @@ class NucleoGPIO:
 
     def ack_nucelo(self):
         try:
+            self._open()
             lgpio.gpio_write(self.chip, self.start_pin, 0)
             time.sleep(0.2)
             lgpio.gpio_write(self.chip, self.start_pin, 1)

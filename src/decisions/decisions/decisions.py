@@ -5,11 +5,10 @@ import time
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point, PoseStamped
-from std_msgs.msg import Float32, Float32MultiArray, MultiArrayLayout, MultiArrayDimension, String, UInt8MultiArray
+from geometry_msgs.msg import Twist, PoseStamped
+from std_msgs.msg import Bool, Float32, Float32MultiArray, String, UInt8MultiArray
 
 
-from utils.nucleo_gpio import NucleoGPIO
 from utils.neopixel_ring import NeoPixelRing
 try:
     from decisions.yolo_model import YOLOModel
@@ -41,7 +40,7 @@ class DecisionsNode(Node):
         self.rotate_pub = self.create_publisher(Float32MultiArray, "/rotate", 10)
         self.positioning_pub = self.create_publisher(Float32MultiArray, "/position", 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
-        self.self.ctr_cmd_callback = self.create_publisher(String, "/ctr_cmd", 10)
+        self.pause_path_pub = self.create_publisher(Bool, "/pause_path", 10)
         self.pose = None
 
         # Hardware and utility components
@@ -58,7 +57,7 @@ class DecisionsNode(Node):
         self.planner = Planner()
         self.path = None
         self.path_type = None
-        self.path_index = 0
+        self.path_index = None
 
         self.move_timeout = 5
         self.battery_voltage = None
@@ -135,7 +134,7 @@ class DecisionsNode(Node):
     def start_exploring(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
 
-        self.ctrl_cmd_pub.publish(String(data="resume"))
+        self.pause_path_pub.publish(Bool(data=False))
 
         if self.explore_timer:
             self.explore_timer.cancel()
@@ -155,7 +154,7 @@ class DecisionsNode(Node):
     def start_aligning(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
         
-        self.ctrl_cmd_pub.publish(String(data="pause"))
+        self.pause_path_pub.publish(Bool(data=True))
 
         if self.align_timer:
             self.align_timer.cancel()
@@ -175,13 +174,13 @@ class DecisionsNode(Node):
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
         if abs(best_point[0] / 1000.0) < rp.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
-            self.uart_pub.publish(package_removal_command(best_point[1]))
+            self.uart_pub.publish(package_removal_command((best_point[1])))
             self.align_timer.cancel()
             self.transition_to_state(State.WAITING)
             return
 
         displacement = best_point[0] / 1000.0
-        new_position = two_d_array_to_float32_multiarray([[displacement, 0.0, 0.0]])
+        new_position = two_d_array_to_float32_multiarray([[rp.POSITION, displacement, 0.0, 0.0]])
         
         self.positioning_pub.publish(new_position)
         
@@ -260,16 +259,27 @@ class DecisionsNode(Node):
         msg.angular.z = float(angular)
         self.cmd_vel_publisher.publish(msg)
 
-    def update_state_from_path_type(self):
+    def increment_path(self):
+        if self.path_index is None:
+            self.path_index = 0
+        else:
+            self.path_index += 1
+
+        if self.path_index >= len(self.path):
+            self.path = None
+            self.path_type = None
+            self.transition_to_state(State.IDLE)
+            return
+        
         self.path_type = self.path[self.path_index][0]
 
-        if self.path_type == rp.MotionType.TRAVEL:
+        if self.path_type == rp.TRAVEL:
             self.transition_to_state(State.TRAVEL)
-        elif self.path_type == rp.MotionType.ROTATE:
+        elif self.path_type == rp.ROTATE:
             self.transition_to_state(State.ROTATE)
-        elif self.path_type == rp.MotionType.WORK:
+        elif self.path_type == rp.WORK:
             self.transition_to_state(State.EXPLORING)
-        elif self.path_type == rp.MotionType.DONE:
+        elif self.path_type == rp.DONE:
             self.transition_to_state(State.IDLE)
 
     def start_path(self):
@@ -277,18 +287,16 @@ class DecisionsNode(Node):
         path_msg = two_d_array_to_float32_multiarray(self.path)
         self.path_pub.publish(path_msg)
 
-        self.path_index = 0
-        self.update_state_from_path_type()
+        self.increment_path()
         
 
     def cmd_callback(self, msg: String):
         command = msg.data.lower()
         if command == "start":
             self.start_path()
-        elif command == "path_increment":
-            self.path_index += 1
-            self.update_state_from_path_type()
-        elif command == "stop" or command == "path_complete":
+        elif command == "increment_path":
+            self.increment_path()
+        elif command == "stop":
             self.transition_to_state(State.IDLE)
         elif command == "new_pos_reached":
             self.transition_to_state(State.ALIGNING)

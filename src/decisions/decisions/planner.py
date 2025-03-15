@@ -1,19 +1,21 @@
 
 
-x = 1.4
+x = 1.2
 y = 0.5
 
-start_x = 0.8
+start_x = 0.0
 start_y = 0.0
 
 import numpy as np
 import utils.robot_params as rp
 
-POSITIONING = rp.MotionType.POSITTIONING
-WORK = rp.MotionType.WORK
-TRAVEL = rp.MotionType.TRAVEL
-ROTATE = rp.MotionType.ROTATE
-DONE = rp.MotionType.DONE
+POSITION = rp.POSITION
+DOCK = rp.DOCK
+UNDOCK = rp.UNDOCK
+WORK = rp.WORK
+TRAVEL = rp.TRAVEL
+ROTATE = rp.ROTATE
+DONE = rp.DONE
 
 class Planner:
     
@@ -30,11 +32,11 @@ class Planner:
         #     ("rotate", [[0.0, 0.0, 0.0]]),  
         #     ]  
 
-        # # CCW Loop
+        # CCW Loop
         self.path = [
-            [WORK, start_x, start_y, 0.0],
+            [WORK, start_x + x, start_y, 0.0],
             [ROTATE, 0.0, 0.0, np.pi/2],
-            [WORK, start_x + x, start_y + y, -np.pi/2],
+            [WORK, start_x + x, start_y + y, np.pi/2],
             [ROTATE, 0.0, 0.0, np.pi],
             [WORK, start_x, start_y + y, np.pi],
             [ROTATE, 0.0, 0.0, -np.pi/2],
@@ -73,11 +75,7 @@ class Planner:
         self.index = 0
 
     def plan(self):
-        if self.index >= len(self.path):
-            return "done", None
-        ret = self.path[self.index]
-        self.index += 1
-        return ret
+        return self.path
 
     def reset(self):
         self.index = 0

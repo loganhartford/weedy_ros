@@ -12,12 +12,14 @@ class FilterType(Enum):
     CUSTOM_EKF = auto()
     ROS_EKF = auto()
 
-class MotionType(Enum):
-    POSITTIONING = auto()
-    WORK = auto()
-    TRAVEL = auto()
-    ROTATE = auto()
-    DONE = auto()
+
+POSITION = 1.0
+DOCK = 2.0
+UNDOCK = 3.0
+WORK = 4.0
+TRAVEL = 5.0
+ROTATE = 6.0
+DONE = 7.0
 
 filter_type = FilterType.ODOMETRY_IMU
 
@@ -30,7 +32,7 @@ wheel_radius = 0.228 / 2    # m
 wheel_base = 0.497      # distance between center of wheels
 l_a = wheel_base / 2        # distance from center of robot to wheel
 l_b = 0.09 # Distance from wheel axis to drill - TODO: update this from CAD
-y_axis_max = 245.0        # mm
+y_axis_max = 219.62        # mm
 caster_offset = 0.485
 
 # --------------------------
