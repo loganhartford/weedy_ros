@@ -10,18 +10,19 @@ class NucleoGPIO:
 
     def ack_nucelo(self):
         try:
+            self._open()
             lgpio.gpio_write(self.chip, self.start_pin, 0)
             time.sleep(0.2)
             lgpio.gpio_write(self.chip, self.start_pin, 1)
         except Exception as e:
-            raise GPIOError(f"Error toggling reset: {e}")
+            raise GPIOError(f"Error acking nucleo: {e}")
 
     def enable_nucelo(self):
         try:
             self._open()
             lgpio.gpio_claim_output(self.chip, self.start_pin, level=1)
         except Exception as e:
-            raise GPIOError(f"Error toggling reset: {e}")
+            raise GPIOError(f"Error enabling nucleo: {e}")
         
     def toggle_reset(self):
         try:
@@ -49,6 +50,8 @@ class NucleoGPIO:
             raise GPIOError(f"Error releasing reset: {e}")
 
     def _open(self):
+        if self.chip:
+            return
         self.chip = lgpio.gpiochip_open(0)
 
     def _close(self):
