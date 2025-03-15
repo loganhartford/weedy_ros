@@ -43,7 +43,7 @@ class ControllerNode(Node):
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/lin_pid_log.csv"
         )
         self.positioning_angular_pid = PID_ctrl(
-            kp=5.0, kd=0.0, ki=0.0,
+            kp=1.0, kd=0.0, ki=0.0,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/ang_pid_log.csv"
         )
 
@@ -52,7 +52,12 @@ class ControllerNode(Node):
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/path_lin_pid_log.csv"
         )
         self.path_angular_pid = PID_ctrl(
-            kp=1.0, kd=0.0, ki=0.0,
+            kp=0.5, kd=0.0, ki=0.0,
+            log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/path_ang_pid_log.csv"
+        )
+
+        self.rotation_angular_pid = PID_ctrl(
+            kp=1.5, kd=0.0, ki=0.0,
             log_file="/mnt/shared/weedy_ros/src/locomotion/locomotion/outputs/path_ang_pid_log.csv"
         )
 
@@ -68,7 +73,7 @@ class ControllerNode(Node):
             elif self.path != [] and not self.pause_path:
                 if self.motion_type == rp.DOCK or self.motion_type == rp.UNDOCK:
                     self.new_position = self.current_motion
-                    self.self.position_from_pose = self.pose
+                    self.position_from_pose = self.pose
                     self.closed_loop_positioning()
                     return
                 elif self.motion_type == rp.WORK or self.motion_type == rp.TRAVEL:
@@ -82,6 +87,7 @@ class ControllerNode(Node):
 
     def closed_loop_positioning(self):
         linear_error = calculate_positioning_error(self.position_from_pose.pose, self.pose.pose, self.new_position[1])
+        angular_error = calculate_rotation_error(self.pose.pose, self.new_position[1:])
         
         if abs(linear_error) < rp.pid_linear_pos_error_tolerance:
             if self.new_position[0] == rp.DOCK or self.new_position[0] == rp.UNDOCK:
@@ -99,6 +105,9 @@ class ControllerNode(Node):
 
         linear_vel = self.positioning_linear_pid.update([linear_error, self.pose.header.stamp])
         angular_vel = 0.0 
+        if self.new_position[0] == rp.DOCK or self.new_position[0] == rp.UNDOCK:
+            angular_vel = self.positioning_angular_pid.update([angular_error, self.pose.header.stamp])
+            
 
         self.motor_controller.set_velocity(linear_vel, angular_vel)
 
@@ -118,7 +127,7 @@ class ControllerNode(Node):
                 self.reset_control()
             
             return
-    
+        
         linear_vel = self.path_linear_pid.update([linear_error, self.pose.header.stamp])
         angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
         
@@ -139,7 +148,7 @@ class ControllerNode(Node):
             return
             
         linear_vel = 0
-        angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
+        angular_vel = self.rotation_angular_pid.update([angular_error, self.pose.header.stamp])
 
         self.motor_controller.set_velocity(linear_vel, angular_vel)
 
@@ -204,6 +213,7 @@ class ControllerNode(Node):
         self.positioning_angular_pid.clear_history()
         self.path_linear_pid.clear_history()
         self.path_angular_pid.clear_history()
+        self.rotation_angular_pid.clear_history()
 
     def destroy_node(self):
         self.motor_controller.stop()

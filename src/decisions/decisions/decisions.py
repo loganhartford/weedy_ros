@@ -277,7 +277,7 @@ class DecisionsNode(Node):
         
         self.path_type = self.path[self.path_index][0]
 
-        if self.path_type == rp.TRAVEL:
+        if self.path_type == rp.TRAVEL or self.path_type == rp.DOCK:
             self.transition_to_state(State.TRAVEL)
         elif self.path_type == rp.ROTATE:
             self.transition_to_state(State.ROTATE)
