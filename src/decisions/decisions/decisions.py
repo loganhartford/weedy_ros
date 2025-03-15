@@ -174,7 +174,11 @@ class DecisionsNode(Node):
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
         if abs(best_point[0] / 1000.0) < rp.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
-            self.uart_pub.publish(package_removal_command((best_point[1])))
+            # self.uart_pub.publish(package_removal_command((best_point[1])))
+            # hack until homography is re-calibrated
+            self.uart_pub.publish(package_removal_command((best_point[1] - 10.0)))
+            self.get_logger().info(f"Flower removed at y={rp.y_axis_max - best_point[1]}")
+            self.get_logger().info(f"Flower removed at y={ best_point[1] - 5.0}")
             self.align_timer.cancel()
             self.transition_to_state(State.WAITING)
             return
@@ -303,6 +307,7 @@ class DecisionsNode(Node):
         elif self.state == State.WAITING and command == "removal_complete":
             self.transition_to_state(State.EXPLORING)
         elif command == "get_img":
+            self.led_ring.set_color(255, 255, 255, 1.0)
             self.cv_model.capture_and_save_image()
         elif command == "print_pose":
             if self.pose:
