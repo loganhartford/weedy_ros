@@ -1,7 +1,7 @@
 
 
-x = 1.5
-y = 0.5
+x = 1.55
+y = 0.55
 
 start_x = 0.7
 start_y = 0.0
@@ -22,18 +22,51 @@ class Planner:
     def __init__(self):
         # CCW Loop + Travel
         self.path = [
+
+            # Undock
             [TRAVEL, start_x, start_y, 0.0],
+
+            # To far end
             [WORK, start_x + x, start_y, 0.0],
+
+            # Move over
             [ROTATE, 0.0, 0.0, np.pi/2],
-            [WORK, start_x + x, start_y + y, np.pi/2],
+            [UNDOCK, start_x + x, start_y + y/2, np.pi/2],
             [ROTATE, 0.0, 0.0, np.pi],
-            [WORK, start_x, start_y + y, np.pi],
-            [ROTATE, 0.0, 0.0, -np.pi/2],
-            [WORK, start_x, start_y + 0.05, -np.pi/2],
+
+            # To near end
+            [WORK, start_x, start_y + y/2, np.pi],
+
+            # Move over
+            [ROTATE, 0.0, 0.0, np.pi/2],
+            [UNDOCK, start_x, start_y + y, np.pi],
+            [ROTATE, 0.0, 0.0, 0.0],
+
+            # To far end
+            [WORK, start_x + x, start_y + y, np.pi],
+            
+            # Return
+            [ROTATE, 0.0, 0.0, np.pi],
+            [TRAVEL, start_x, start_y + 0.17, np.pi],
+
+            # Dock
             [ROTATE, 0.0, 0.0, 0.0],
             [DOCK, -start_x - 0.05, 0.0, -0.13],
             [DONE, 0.0, 0.0, 0.0],
         ]
+        # self.path = [
+        #     [TRAVEL, start_x, start_y, 0.0],
+        #     [WORK, start_x + x, start_y, 0.0],
+        #     [ROTATE, 0.0, 0.0, np.pi/2],
+        #     [WORK, start_x + x, start_y + y, np.pi/2],
+        #     [ROTATE, 0.0, 0.0, np.pi],
+        #     [WORK, start_x, start_y + y, np.pi],
+        #     [ROTATE, 0.0, 0.0, -np.pi/2],
+        #     [WORK, start_x, start_y + 0.05, -np.pi/2],
+        #     [ROTATE, 0.0, 0.0, 0.0],
+        #     [DOCK, -start_x - 0.05, 0.0, -0.13],
+        #     [DONE, 0.0, 0.0, 0.0],
+        # ]
 
         # CW Loop
         # self.path = [

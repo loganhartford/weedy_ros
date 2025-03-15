@@ -41,6 +41,7 @@ class DecisionsNode(Node):
         self.positioning_pub = self.create_publisher(Float32MultiArray, "/position", 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
         self.pause_path_pub = self.create_publisher(Bool, "/pause_path", 10)
+        self.reset_odom_pub = self.create_publisher(Bool, "/reset_odom", 10)
         self.pose = None
 
         # Hardware and utility components
@@ -78,8 +79,9 @@ class DecisionsNode(Node):
         self.valid_transitions = {
             State.IDLE: [State.EXPLORING, State.TRAVEL],
             State.TRAVEL: [State.IDLE, State.EXPLORING],
-            State.EXPLORING: [State.IDLE, State.ALIGNING, State.TRAVEL],
-            State.ALIGNING: [State.IDLE, State.WAITING],
+            State.ROTATE: [State.IDLE, State.TRAVEL, State.EXPLORING],
+            State.EXPLORING: [State.IDLE, State.ALIGNING, State.TRAVEL, State.ROTATE],
+            State.ALIGNING: [State.IDLE, State.WAITING, State.EXPLORING],
             State.WAITING: [State.IDLE, State.EXPLORING, State.ALIGNING],
         }
         self.state = State.IDLE
@@ -168,6 +170,8 @@ class DecisionsNode(Node):
 
         kp_list = self.get_keypoints()
         if kp_list is None:
+            self.align_timer.cancel()
+            self.transition_to_state(State.EXPLORING)
             return
 
         # Select keypoint with x-coordinate closest to zero
@@ -284,6 +288,8 @@ class DecisionsNode(Node):
         elif self.path_type == rp.WORK:
             self.transition_to_state(State.EXPLORING)
         elif self.path_type == rp.DONE:
+            time.sleep(0.5)
+            self.reset_odom_pub.publish(Bool(data=True))
             self.transition_to_state(State.IDLE)
 
     def start_path(self):

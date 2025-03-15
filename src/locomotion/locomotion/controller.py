@@ -71,12 +71,12 @@ class ControllerNode(Node):
                 self.closed_loop_positioning()
                 return
             elif self.path != [] and not self.pause_path:
-                if self.motion_type == rp.DOCK or self.motion_type == rp.UNDOCK:
+                if self.motion_type == rp.DOCK:
                     self.new_position = self.current_motion
                     self.position_from_pose = self.pose
                     self.closed_loop_positioning()
                     return
-                elif self.motion_type == rp.WORK or self.motion_type == rp.TRAVEL:
+                elif self.motion_type == rp.WORK or self.motion_type == rp.TRAVEL  or self.motion_type == rp.UNDOCK:
                     self.close_loop_path_following()
                     return
                 elif self.motion_type == rp.ROTATE:
@@ -130,6 +130,8 @@ class ControllerNode(Node):
         
         linear_vel = self.path_linear_pid.update([linear_error, self.pose.header.stamp])
         angular_vel = self.path_angular_pid.update([angular_error, self.pose.header.stamp])
+        if self.motion_type == rp.UNDOCK:
+            angular_vel = 0.0
         
         self.motor_controller.set_velocity(linear_vel, angular_vel)
 

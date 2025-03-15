@@ -29,7 +29,7 @@ class MotorController:
             with open(self.log_file, "w") as file:
                 file.write("duty_left,duty_right\n")
 
-    def set_velocity(self, linear_x, angular_z, closed_loop=True):
+    def set_velocity(self, linear_x, angular_z, closed_loop=True, cap_speed=True):
         # LPF
         if closed_loop:
             gain = rp.cl_speed_gain
@@ -39,7 +39,7 @@ class MotorController:
         linear_x = round(self.last_linear_vel + gain * (linear_x - self.last_linear_vel), 4)
         angular_z = round(self.last_angular_vel + gain * (angular_z - self.last_angular_vel),4)
 
-        if closed_loop:
+        if closed_loop and cap_speed:
             linear_x = max(min(linear_x, rp.path_max_linear_speed), -rp.path_max_linear_speed)
             angular_z = max(min(angular_z, rp.path_max_angular_speed), -rp.path_max_angular_speed)
 
