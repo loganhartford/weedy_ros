@@ -23,6 +23,7 @@ from utils.utilities import two_d_array_to_float32_multiarray, package_removal_c
 class State(Enum):
     IDLE = auto()
     TRAVEL = auto()
+    ROTATE = auto()
     EXPLORING = auto()
     ALIGNING = auto()
     WAITING = auto()
@@ -40,6 +41,7 @@ class DecisionsNode(Node):
         self.rotate_pub = self.create_publisher(Float32MultiArray, "/rotate", 10)
         self.positioning_pub = self.create_publisher(Float32MultiArray, "/position", 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
+        self.self.ctr_cmd_callback = self.create_publisher(String, "/ctr_cmd", 10)
         self.pose = None
 
         # Hardware and utility components
@@ -56,6 +58,7 @@ class DecisionsNode(Node):
         self.planner = Planner()
         self.path = None
         self.path_type = None
+        self.path_index = 0
 
         self.move_timeout = 5
         self.battery_voltage = None
@@ -109,7 +112,7 @@ class DecisionsNode(Node):
         elif self.state == State.WAITING:
             self.start_waiting()
         elif self.state == State.TRAVEL:
-            self.start_travel()
+            self.led_ring.set_color(255, 255, 255, 0.0)
 
     def transition_to_state(self, new_state: State):
         if new_state == self.state:
@@ -127,15 +130,12 @@ class DecisionsNode(Node):
         )
         self.state = new_state
         self.on_state_entry()
-
-    def start_travel(self):
-        pass
+        
             
     def start_exploring(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
 
-        path_msg = two_d_array_to_float32_multiarray(self.path)
-        self.path_pub.publish(path_msg)
+        self.ctrl_cmd_pub.publish(String(data="resume"))
 
         if self.explore_timer:
             self.explore_timer.cancel()
@@ -155,7 +155,7 @@ class DecisionsNode(Node):
     def start_aligning(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
         
-        self.path_pub.publish(Float32MultiArray())
+        self.ctrl_cmd_pub.publish(String(data="pause"))
 
         if self.align_timer:
             self.align_timer.cancel()
@@ -260,28 +260,35 @@ class DecisionsNode(Node):
         msg.angular.z = float(angular)
         self.cmd_vel_publisher.publish(msg)
 
-    def start_path(self):
-        self.path_type, self.path = self.planner.plan()
-        path_msg = two_d_array_to_float32_multiarray(self.path)
-        
-        if self.path_type == "travel":
-            self.led_ring.set_color(255, 255, 255, 0.0)
-            self.path_pub.publish(path_msg)
+    def update_state_from_path_type(self):
+        self.path_type = self.path[self.path_index][0]
+
+        if self.path_type == rp.MotionType.TRAVEL:
             self.transition_to_state(State.TRAVEL)
-        elif self.path_type == "rotate":
-            self.rotate_pub.publish(path_msg)
-            self.transition_to_state(State.TRAVEL)
-        elif self.path_type == "work":
-            self.path_pub.publish(path_msg)
+        elif self.path_type == rp.MotionType.ROTATE:
+            self.transition_to_state(State.ROTATE)
+        elif self.path_type == rp.MotionType.WORK:
             self.transition_to_state(State.EXPLORING)
-        elif self.path_type == "done":
+        elif self.path_type == rp.MotionType.DONE:
             self.transition_to_state(State.IDLE)
+
+    def start_path(self):
+        self.path = self.planner.plan()
+        path_msg = two_d_array_to_float32_multiarray(self.path)
+        self.path_pub.publish(path_msg)
+
+        self.path_index = 0
+        self.update_state_from_path_type()
+        
 
     def cmd_callback(self, msg: String):
         command = msg.data.lower()
-        if command == "start" or command == "path_complete":
+        if command == "start":
             self.start_path()
-        elif command == "stop":
+        elif command == "path_increment":
+            self.path_index += 1
+            self.update_state_from_path_type()
+        elif command == "stop" or command == "path_complete":
             self.transition_to_state(State.IDLE)
         elif command == "new_pos_reached":
             self.transition_to_state(State.ALIGNING)

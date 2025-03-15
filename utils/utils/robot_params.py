@@ -12,6 +12,13 @@ class FilterType(Enum):
     CUSTOM_EKF = auto()
     ROS_EKF = auto()
 
+class MotionType(Enum):
+    POSITTIONING = auto()
+    WORK = auto()
+    TRAVEL = auto()
+    ROTATE = auto()
+    DONE = auto()
+
 filter_type = FilterType.ODOMETRY_IMU
 
 # --------------------------

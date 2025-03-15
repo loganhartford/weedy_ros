@@ -16,10 +16,10 @@ class ControllerNode(Node):
     def __init__(self):
         super().__init__('controller')
 
+        self.create_subscription(String, '/ctr_cmd', self.ctr_cmd_callback, 10)
         self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.create_subscription(PoseStamped, '/pose', self.pose_callback, 1)
         self.create_subscription(Float32MultiArray, '/path', self.path_callback, 10)
-        self.create_subscription(Float32MultiArray, '/rotate', self.rotate_callback, 10)
         self.create_subscription(Float32MultiArray, '/position', self.position_callback, 10)
         self.cmd_publisher = self.create_publisher(String, '/cmd', 10)
 
@@ -27,8 +27,11 @@ class ControllerNode(Node):
         self.pose = None
         self.position_from_pose = None
         self.path = []
-        self.rotate = []
-        self.new_position = []
+        self.path_index = 0
+        self.motion_type = None
+        self.current_motion = None
+
+        self.pause = False
 
         self.motor_controller = MotorController()
 
@@ -55,12 +58,18 @@ class ControllerNode(Node):
         self.get_logger().info("Controller Initialized")
        
     def control_loop(self):
-        if self.pose is not None and self.new_position != []:
-            self.closed_loop_positioning()
-        elif self.pose is not None and self.path != []:
-            self.close_loop_path_following()
-        elif self.pose is not None and self.rotate != []:
-            self.close_loop_rotatation()
+        if self.pose is not None:
+            if self.new_position is not None:
+                self.closed_loop_positioning()
+            if self.motion_type == rp.MotionType.POSITTIONING:
+
+                self.closed_loop_positioning()
+            elif self.motion_type == rp.MotionType.WORK or self.motion_type == rp.MotionType.TRAVEL:
+                pass
+            elif self.motion_type == rp.MotionType.ROTATE:
+                pass
+            elif self.motion_type == rp.MotionType.DONE:
+                pass
         else:
             self.open_loop_control()
 
@@ -69,8 +78,10 @@ class ControllerNode(Node):
         
         if abs(linear_error) < rp.pid_linear_pos_error_tolerance:
             self.reset_control()
-            self.get_logger().info("new_pos_reached")
-            self.cmd_publisher.publish(String(data="new_pos_reached"))
+            if self.path_index == len(self.path) - 1:
+                self.cmd_publisher.publish(String(data="new_pos_reached"))
+            else:
+                self.cmd_publisher.publish(String(data="increment_path"))
             return
 
         linear_vel = self.positioning_linear_pid.update([linear_error, self.pose.header.stamp])
@@ -125,20 +136,35 @@ class ControllerNode(Node):
 
     def cmd_vel_callback(self, msg):
         self.vel_req = msg
+    
+    def increment_path(self):
+        self.current_motion = self.path[self.path_index]
+        self.motion_type = self.current_motion[0]
+
+        if self.motion_type == rp.MotionType.POSITTIONING:
+            self.position_from_pose = self.pose
+
+    def path_callback(self, msg):
+        self.path = float32_multi_array_to_two_d_array(msg)
+        self.path_index = 0
+        self.current_motion = self.path[self.path_index]
+        self.motion_type = self.current_motion[0]
+        
+        if self.motion_type == rp.MotionType.POSITTIONING:
+            self.position_from_pose = self.pose
+       
+    def pose_callback(self, msg):
+        self.pose = msg
 
     def position_callback(self, msg):
         self.new_position = float32_multi_array_to_two_d_array(msg)
         self.position_from_pose = self.pose
     
-    def path_callback(self, msg):
-        self.path = float32_multi_array_to_two_d_array(msg)
-       
-    
-    def rotate_callback(self, msg):
-        self.rotate = float32_multi_array_to_two_d_array(msg)
-
-    def pose_callback(self, msg):
-        self.pose = msg
+    def ctr_cmd_callback(self, msg):
+        if msg.data == "pause":
+            self.pause = True
+        else:
+            self.pause = False
 
     def reset_control(self):
         self.positioning_linear_pid.clear_history()
