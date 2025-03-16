@@ -54,6 +54,7 @@ class DecisionsNode(Node):
             self.get_logger().error(f"Error initializing YOLO model: {e}")
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5
+        self.no_kp = 0
         
         self.planner = Planner()
         self.path = None
@@ -167,12 +168,18 @@ class DecisionsNode(Node):
             if self.align_timer:
                 self.align_timer.cancel()
             return
-
+        
         kp_list = self.get_keypoints()
         if kp_list is None:
-            self.align_timer.cancel()
-            self.transition_to_state(State.EXPLORING)
+            self.no_kp += 1
+            if self.no_kp > 5:
+                self.no_kp =0
+                self.get_logger().info("No keypoints found. Transitioning to EXPLORING.")
+                self.align_timer.cancel()
+                self.transition_to_state(State.EXPLORING)
             return
+        
+        self.no_kp =0
 
         # Select keypoint with x-coordinate closest to zero
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
@@ -180,9 +187,7 @@ class DecisionsNode(Node):
             self.get_logger().info("Y-axis aligned. Removing flower.")
             # self.uart_pub.publish(package_removal_command((best_point[1])))
             # hack until homography is re-calibrated
-            self.uart_pub.publish(package_removal_command((best_point[1] - 10.0)))
-            self.get_logger().info(f"Flower removed at y={rp.y_axis_max - best_point[1]}")
-            self.get_logger().info(f"Flower removed at y={ best_point[1] - 5.0}")
+            self.uart_pub.publish(package_removal_command(best_point[1]))
             self.align_timer.cancel()
             self.transition_to_state(State.WAITING)
             return
@@ -267,10 +272,8 @@ class DecisionsNode(Node):
         msg.angular.z = float(angular)
         self.cmd_vel_publisher.publish(msg)
 
-    def increment_path(self):
-        if self.path_index is None:
-            self.path_index = 0
-        else:
+    def increment_path(self, increment=True):
+        if increment:
             self.path_index += 1
 
         if self.path_index >= len(self.path):
@@ -290,14 +293,16 @@ class DecisionsNode(Node):
         elif self.path_type == rp.DONE:
             time.sleep(0.5)
             self.reset_odom_pub.publish(Bool(data=True))
+            self.path_index = 0
             self.transition_to_state(State.IDLE)
 
     def start_path(self):
         self.path = self.planner.plan()
+        self.path_index = 0
         path_msg = two_d_array_to_float32_multiarray(self.path)
         self.path_pub.publish(path_msg)
 
-        self.increment_path()
+        self.increment_path(increment=False)
         
 
     def cmd_callback(self, msg: String):
@@ -315,6 +320,7 @@ class DecisionsNode(Node):
         elif command == "get_img":
             self.led_ring.set_color(255, 255, 255, 1.0)
             self.cv_model.capture_and_save_image()
+            self.cv_model.run_inference(save_result=True)
         elif command == "print_pose":
             if self.pose:
                 pos = self.pose.pose.position

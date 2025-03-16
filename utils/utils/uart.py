@@ -114,7 +114,7 @@ class UARTNode(Node):
             elif buffer[0] == rp.callback_byte:
                 cmd_msg = String(data="removal_complete")
                 self.cmd_pub.publish(cmd_msg)
-                self.nucleo_gpio.ack_nucelo()
+                # self.nucleo_gpio.ack_nucelo()
             else:
                 self.get_logger().warn("Received unknown message type: " + str(buffer))
 
