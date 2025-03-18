@@ -111,7 +111,8 @@ class TeleopNode(Node):
             # twist.linear.x = 0.134
             # twist.angular.z = -twist.linear.x / radius
             # self.cmd_vel_pub.publish(twist)
-            self.uart_pub.publish(package_removal_command(110))
+            # self.uart_pub.publish(package_removal_command(34))
+            self.uart_pub.publish(package_removal_command(185))
 
         elif event.button == 10:  # Right Stick Press - Drill activation (uses manual_control)
             self.send_manual_command(rp.drill_byte)
