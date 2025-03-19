@@ -16,7 +16,7 @@ class ControllerNode(Node):
     def __init__(self):
         super().__init__('controller')
 
-        self.create_subscription(Bool, '/pause_path', self.pause_path_callback, 10)
+        self.create_subscription(String, '/ctr_cmd', self.ctr_cmd_callback, 10)
         self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.create_subscription(PoseStamped, '/pose', self.pose_callback, 1)
         self.create_subscription(Float32MultiArray, '/path', self.path_callback, 10)
@@ -190,8 +190,16 @@ class ControllerNode(Node):
         self.new_position = self.new_position[-1]
         self.position_from_pose = self.pose
     
-    def pause_path_callback(self, msg):
-        self.pause_path = msg.data
+    def ctr_cmd_callback(self, msg):
+        if msg.data == "pause":
+            self.pause_path = True
+        elif msg.data == "go":
+            self.pause_path = False
+        elif msg.data == "stop":
+            self.new_position = []
+            self.path = []
+            self.path_index = 0
+            self.motor_controller.stop()
         self.reset_control()
     
     def increment_path(self):

@@ -75,6 +75,13 @@ class MotorController:
         self.right_motor.change_duty_cycle(right_duty)
 
     def stop(self):
+        self.last_linear_vel = 0.0
+        self.last_angular_vel = 0.0
+        self.left_motor.change_duty_cycle(0)
+        self.right_motor.change_duty_cycle(0)
+        
+    
+    def __del__(self):
         self.left_motor.stop()
         self.right_motor.stop()
         lgpio.gpiochip_close(self.chip)

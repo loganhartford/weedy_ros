@@ -40,7 +40,7 @@ class DecisionsNode(Node):
         self.rotate_pub = self.create_publisher(Float32MultiArray, "/rotate", 10)
         self.positioning_pub = self.create_publisher(Float32MultiArray, "/position", 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
-        self.pause_path_pub = self.create_publisher(Bool, "/pause_path", 10)
+        self.pause_path_pub = self.create_publisher(String, "/ctr_cmd", 10)
         self.reset_odom_pub = self.create_publisher(Bool, "/reset_odom", 10)
         self.pose = None
 
@@ -140,7 +140,7 @@ class DecisionsNode(Node):
     def start_exploring(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
 
-        self.pause_path_pub.publish(Bool(data=False))
+        self.pause_path_pub.publish(String(data="go"))
 
         if self.explore_timer:
             self.explore_timer.cancel()
@@ -160,7 +160,7 @@ class DecisionsNode(Node):
     def start_aligning(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
         
-        self.pause_path_pub.publish(Bool(data=True))
+        self.pause_path_pub.publish(String(data="pause"))
 
         if self.align_timer:
             self.align_timer.cancel()

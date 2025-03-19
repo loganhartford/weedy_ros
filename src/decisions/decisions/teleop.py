@@ -26,6 +26,7 @@ class TeleopNode(Node):
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
         self.reset_odom_pub = self.create_publisher(Bool, "/reset_odom", 10)
+        self.pause_path_pub = self.create_publisher(String, "/ctr_cmd", 10)
 
         self.last_linear = 0.0
         self.last_angular = 0.0
@@ -102,6 +103,7 @@ class TeleopNode(Node):
                 self.get_logger().error("Emergency STOP!")
                 twist.linear.x = 0.0
                 twist.angular.z = 0.0
+                self.pause_path_pub.publish(String(data="stop"))
         elif event.button == 5:  # RB button - Reset Odometry
             self.reset_odom_pub.publish(Bool(data=True))
         elif event.button == 6:  # Back button (-) - Toggle GPIO reset
