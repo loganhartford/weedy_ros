@@ -89,7 +89,10 @@ class DecisionsNode(Node):
         self.state_timer_period = 0.1
         
         self.get_logger().info("Decisions Initialized")
+        self.flash = True
         self.request_battery_voltage()
+
+        self.check_battery_timer = self.create_timer(300.0, self.request_battery_voltage)
 
     def cancel_all_timers(self):
         for attr in ("explore_timer", "align_timer", "wait_timer"):
@@ -114,7 +117,7 @@ class DecisionsNode(Node):
         elif self.state == State.WAITING:
             self.start_waiting()
         elif self.state == State.TRAVEL:
-            self.led_ring.set_color(255, 255, 255, 0.0)
+            self.led_ring.set_color(255, 255, 0, 1.0)
 
     def transition_to_state(self, new_state: State):
         if new_state == self.state:
@@ -185,8 +188,7 @@ class DecisionsNode(Node):
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
         if abs(best_point[0] / 1000.0) < rp.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
-            # self.uart_pub.publish(package_removal_command((best_point[1])))
-            # hack until homography is re-calibrated
+            self.led_ring.set_color(255, 255, 0, 1.0)
             self.uart_pub.publish(package_removal_command(best_point[1]))
             self.align_timer.cancel()
             self.transition_to_state(State.WAITING)
@@ -257,14 +259,19 @@ class DecisionsNode(Node):
         self.battery_voltage = msg.data
         try:
             self.get_logger().info(f"Battery voltage: {self.battery_voltage} V")
-            if self.battery_voltage > 37.0:
+            if self.battery_voltage > 37.0 and self.flash:
                 self.led_ring.flash_color(0, 255, 0, 1.0)
             elif self.battery_voltage < 30.0:
                 self.led_ring.flash_color(255, 0, 0, 1.0)
-            else:
+                self.get_logger().warn("Low battery voltage. Stopping.")
+                # TODO: E-Stop here
+                time.sleep(1.0)
+            elif self.flash:
                 self.led_ring.flash_color(255, 255, 0, 1.0)
         except Exception as e:
             self.get_logger().error(f"Error getting battery voltage: {e}")
+        
+        self.flash = False
 
     def publish_twist(self, linear, angular):
         msg = Twist()
@@ -331,6 +338,7 @@ class DecisionsNode(Node):
             else:
                 self.get_logger().info("No pose received yet.")
         elif command == "battery":
+            self.flash = True
             self.request_battery_voltage()
         else:
             self.get_logger().error(f"'{command}' is not a valid command.")
