@@ -216,7 +216,7 @@ class DecisionsNode(Node):
             self.led_ring.step_animation()
 
     def get_boxes(self):
-        result = self.cv_model.run_inference(save_data=False)
+        result = self.cv_model.run_inference(save_data=True, save_result=False)
         if result is None:
             return None
 
@@ -225,7 +225,7 @@ class DecisionsNode(Node):
         return result.boxes if len(result.boxes) > 0 else None
 
     def get_keypoints(self):
-        result = self.cv_model.run_inference(save_data=False)
+        result = self.cv_model.run_inference(save_data=True, save_result=False)
         if result is None or not result.keypoints:
             return None
 
@@ -320,7 +320,7 @@ class DecisionsNode(Node):
         elif command == "get_img":
             self.led_ring.set_color(255, 255, 255, 1.0)
             self.cv_model.capture_and_save_image()
-            self.cv_model.run_inference(save_result=True)
+            self.cv_model.run_inference(save_result=True, result_name="ModelOutput")
         elif command == "print_pose":
             if self.pose:
                 pos = self.pose.pose.position

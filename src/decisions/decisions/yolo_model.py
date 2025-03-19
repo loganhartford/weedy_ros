@@ -15,7 +15,7 @@ class YOLOModel:
         self.model = YOLO(self.model_path, task="pose", verbose=False)
         self.image_url = "http://localhost:8000"
 
-    def run_inference(self, save_data=False, save_result=False):
+    def run_inference(self, save_data=False, save_result=False, result_name=None):
         try:
             img = self.get_img()
             if save_data:
@@ -29,8 +29,11 @@ class YOLOModel:
             result = results[0]
             if len(result) == 0:
                 return None
-            if save_result:
-                result.save("/mnt/shared/weedy_ros/src/decisions/decisions/outputs/result.jpg")
+            if save_result and result_name is not None:
+                result.save(f"/mnt/shared/weedy_ros/src/decisions/decisions/outputs/{result_name}.jpg")
+            elif save_result:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                result.save(f"/mnt/shared/weedy_ros/src/decisions/decisions/outputs/result_{timestamp}.jpg")
             return result
         except Exception as e:
             raise ModelError("Error during model inference") from e
