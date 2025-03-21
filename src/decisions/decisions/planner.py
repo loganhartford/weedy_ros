@@ -21,39 +21,49 @@ class Planner:
     
     def __init__(self):
         # CCW Loop + Travel
+
+        # Symposium Demo
         self.path = [
-
-            # Undock
-            [TRAVEL, start_x, start_y, 0.0],
-
-            # To far end
-            [WORK, start_x + x, start_y, 0.0],
-
-            # Move over
-            [ROTATE, 0.0, 0.0, np.pi/2],
-            [UNDOCK, start_x + x, start_y + y/2, np.pi/2],
-            [ROTATE, 0.0, 0.0, np.pi],
-
-            # To near end
-            [WORK, start_x, start_y + y/2, np.pi],
-
-            # Move over
-            [ROTATE, 0.0, 0.0, np.pi/2],
-            [UNDOCK, start_x, start_y + y, np.pi],
-            [ROTATE, 0.0, 0.0, 0.0],
-
-            # To far end
-            [WORK, start_x + x, start_y + y, np.pi],
-            
-            # Return
-            [ROTATE, 0.0, 0.0, np.pi],
-            [TRAVEL, start_x, start_y + 0.17, np.pi],
-
-            # Dock
-            [ROTATE, 0.0, 0.0, 0.0],
-            [DOCK, -start_x - 0.05, 0.0, -0.13],
+            [WORK, 1.6, 0.0, 0.0],
             [DONE, 0.0, 0.0, 0.0],
         ]
+
+        # FDR Circuit
+        # self.path = [
+
+        #     # Undock
+        #     [TRAVEL, start_x, start_y, 0.0],
+
+        #     # To far end
+        #     [WORK, start_x + x, start_y, 0.0],
+
+        #     # Move over
+        #     [ROTATE, 0.0, 0.0, np.pi/2],
+        #     [UNDOCK, start_x + x, start_y + y/2, np.pi/2],
+        #     [ROTATE, 0.0, 0.0, np.pi],
+
+        #     # To near end
+        #     [WORK, start_x, start_y + y/2, np.pi],
+
+        #     # Move over
+        #     [ROTATE, 0.0, 0.0, np.pi/2],
+        #     [UNDOCK, start_x, start_y + y, np.pi],
+        #     [ROTATE, 0.0, 0.0, 0.0],
+
+        #     # To far end
+        #     [WORK, start_x + x, start_y + y, np.pi],
+            
+        #     # Return
+        #     [ROTATE, 0.0, 0.0, np.pi],
+        #     [TRAVEL, start_x, start_y + 0.17, np.pi],
+
+        #     # Dock
+        #     [ROTATE, 0.0, 0.0, 0.0],
+        #     [DOCK, -start_x - 0.05, 0.0, -0.13],
+        #     [DONE, 0.0, 0.0, 0.0],
+        # ]
+
+
         # self.path = [
         #     [TRAVEL, start_x, start_y, 0.0],
         #     [WORK, start_x + x, start_y, 0.0],
@@ -109,6 +119,3 @@ class Planner:
 
     def plan(self):
         return self.path
-
-    def reset(self):
-        self.index = 0
