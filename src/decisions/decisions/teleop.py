@@ -50,6 +50,7 @@ class TeleopNode(Node):
 
         pygame.event.pump()
         for event in pygame.event.get():
+            self.get_logger().debug(f"Event: {event}")
             if event.type == pygame.JOYAXISMOTION:
                 self.handle_axis_motion(event)
             elif event.type == pygame.JOYHATMOTION:
@@ -108,14 +109,10 @@ class TeleopNode(Node):
             self.reset_odom_pub.publish(Bool(data=True))
         elif event.button == 6:  # Back button (-) - Toggle GPIO reset
             self.toggle_nucleo_reset()
-        elif event.button == 7:  # Start button (+) - Removal #Circle turn
-            # radius = 0.90  # Choose a radius greater than 0.269 m for pure forward motion
-            # twist.linear.x = 0.134
-            # twist.angular.z = -twist.linear.x / radius
-            # self.cmd_vel_pub.publish(twist)
-            # self.uart_pub.publish(package_removal_command(34))
-            self.uart_pub.publish(package_removal_command(185))
-
+        elif event.button == 7:  # Start button (+) - Removal
+            # Homography alignement positions
+            self.uart_pub.publish(package_removal_command(23))
+            # self.uart_pub.publish(package_removal_command(196))
         elif event.button == 10:  # Right Stick Press - Drill activation (uses manual_control)
             self.send_manual_command(rp.drill_byte)
 
