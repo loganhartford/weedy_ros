@@ -55,6 +55,7 @@ class DecisionsNode(Node):
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5
         self.no_kp = 0
+        self.last_reposition = None
         
         self.planner = Planner()
         self.path = None
@@ -154,6 +155,8 @@ class DecisionsNode(Node):
         boxes = self.get_boxes()
         if boxes is not None:
             self.explore_timer.cancel()
+            # To account for the case where the robot clears the dandelion before coming to a stop
+            self.last_reposition = 0.2
             self.transition_to_state(State.ALIGNING)
 
     def start_aligning(self):
@@ -174,14 +177,23 @@ class DecisionsNode(Node):
         kp_list = self.get_keypoints()
         if kp_list is None:
             self.no_kp += 1
-            if self.no_kp > 5:
-                self.no_kp =0
+            if self.no_kp > 3:
+                # To account for the case where we move past the dandelion during a re-position
+                if self.last_reposition is not None:
+                    new_position = two_d_array_to_float32_multiarray([[rp.POSITION, -self.last_reposition/2, 0.0, 0.0]])
+                    self.positioning_pub.publish(new_position)
+                    self.last_reposition = None
+                    self.no_kp = 0
+                    self.align_timer.cancel()
+                    self.transition_to_state(State.WAITING)
+                    return
+                self.no_kp = 0
                 self.get_logger().info("No keypoints found. Transitioning to EXPLORING.")
                 self.align_timer.cancel()
                 self.transition_to_state(State.EXPLORING)
             return
         
-        self.no_kp =0
+        self.no_kp = 0
 
         # Select keypoint with x-coordinate closest to zero
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
@@ -194,8 +206,8 @@ class DecisionsNode(Node):
             return
 
         displacement = best_point[0] / 1000.0
+        self.last_reposition = displacement
         new_position = two_d_array_to_float32_multiarray([[rp.POSITION, displacement, 0.0, 0.0]])
-        
         self.positioning_pub.publish(new_position)
         
         self.align_timer.cancel()

@@ -24,7 +24,7 @@ class Planner:
 
         # Symposium Demo
         self.path = [
-            [TRAVEL, 0.5, 0.0, 0.0],
+            # [TRAVEL, 0.5, 0.0, 0.0],
             [WORK, 1.0, 0.0, 0.0],
             [DONE, 0.0, 0.0, 0.0],
         ]
