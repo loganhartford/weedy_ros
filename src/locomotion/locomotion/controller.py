@@ -174,6 +174,7 @@ class ControllerNode(Node):
         if self.path == []:
             return
         self.path_index = 0
+        self.pause_path = False
         self.current_motion = self.path[self.path_index]
         self.motion_type = self.current_motion[0]
         

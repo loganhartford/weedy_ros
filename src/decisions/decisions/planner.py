@@ -1,10 +1,8 @@
 
 
-x = 1.55
-y = 0.55
 
-start_x = 0.7
-start_y = 0.0
+
+
 
 import numpy as np
 import utils.robot_params as rp
@@ -23,13 +21,41 @@ class Planner:
         # CCW Loop + Travel
 
         # Symposium Demo
+        start_x = 0.4
+        start_y = 0.0
+        x = 1.55
+        y = 0.4
         self.path = [
-            # [TRAVEL, 0.5, 0.0, 0.0],
-            [WORK, 1.0, 0.0, 0.0],
+
+            # Undock
+            [TRAVEL, start_x, start_y, 0.0],
+
+            # To far end
+            [WORK, start_x + x, start_y, 0.0],
+
+            # Move over
+            [ROTATE, 0.0, 0.0, np.pi/2],
+            [UNDOCK, start_x + x, start_y + y, np.pi/2],
+            [ROTATE, 0.0, 0.0, np.pi],
+
+            # To near end
+            [WORK, start_x, start_y + y, np.pi],
+            
+            # Return
+            [ROTATE, 0.0, 0.0, -np.pi/2],
+            [UNDOCK, start_x, start_y+0.05, -np.pi/2],
+
+            # Dock
+            [ROTATE, 0.0, 0.0, 0.0],
+            [DOCK, -start_x - 0.05, 0.0, -0.13],
             [DONE, 0.0, 0.0, 0.0],
         ]
 
         # FDR Circuit
+        # start_x = 0.7
+        # start_y = 0.0
+        # x = 1.55
+        # y = 0.55
         # self.path = [
 
         #     # Undock
