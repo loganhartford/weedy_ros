@@ -57,7 +57,7 @@ CATKIN_IGNORE
 
 core
 
-*.csv
+# *.csv
 
 # Ignore all PNG files except those in /img
 *.png
