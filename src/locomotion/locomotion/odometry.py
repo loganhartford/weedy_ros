@@ -27,7 +27,7 @@ class OdometryNode(Node):
         self.reset_odom_sub = self.create_subscription(Bool, '/reset_odom', self.reset_odom_callback, 1)
 
         if rp.filter_type == rp.FilterType.ODOMETRY_IMU:
-            self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 1)
+            self.imu_sub = self.create_subscription(Imu, '/imu/data', self.imu_callback, 1)
         
         self.last_ticks_left = None
         self.last_ticks_right = None

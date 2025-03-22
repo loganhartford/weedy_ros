@@ -26,7 +26,7 @@ class LocalizationNode(Node):
 
         if rp.filter_type == rp.FilterType.CUSTOM_EKF:
             qos=QoSProfile(reliability=2, durability=2, history=1, depth=10)
-            self.imu_sub=message_filters.Subscriber(self, Imu, "/imu", qos_profile=qos)
+            self.imu_sub=message_filters.Subscriber(self, Imu, "/imu/data", qos_profile=qos)
             self.ticks_sub=message_filters.Subscriber(self, Odometry, "/odom", qos_profile=qos)
             time_syncher=message_filters.ApproximateTimeSynchronizer([self.ticks_sub, self.imu_sub], queue_size=10, slop=0.1)
             time_syncher.registerCallback(self.fusion_callback)

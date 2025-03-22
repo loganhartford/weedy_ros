@@ -37,7 +37,6 @@ class DecisionsNode(Node):
         
         self.cmd_vel_publisher = self.create_publisher(Twist, "/cmd_vel", 10)
         self.path_pub = self.create_publisher(Float32MultiArray, "/path", 10)
-        self.rotate_pub = self.create_publisher(Float32MultiArray, "/rotate", 10)
         self.positioning_pub = self.create_publisher(Float32MultiArray, "/position", 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
         self.pause_path_pub = self.create_publisher(String, "/ctr_cmd", 10)
@@ -110,7 +109,6 @@ class DecisionsNode(Node):
             self.led_ring.off()
             self.path_pub.publish(Float32MultiArray())
             self.positioning_pub.publish(Float32MultiArray())
-            self.rotate_pub.publish(Float32MultiArray())
             self.publish_twist(0, 0)
         elif self.state == State.ALIGNING:
             self.start_aligning()

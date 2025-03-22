@@ -23,6 +23,9 @@ DONE = 7.0
 
 filter_type = FilterType.ODOMETRY_IMU
 
+USE_MAG = True
+POST_RAW = False
+
 # --------------------------
 # Robot Physical Dimensions
 # --------------------------

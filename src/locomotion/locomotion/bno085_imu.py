@@ -8,20 +8,35 @@ from adafruit_bno08x import (
     BNO_REPORT_ACCELEROMETER,
     BNO_REPORT_GYROSCOPE,
     BNO_REPORT_ROTATION_VECTOR,
-    BNO_REPORT_MAGNETOMETER
+    BNO_REPORT_MAGNETOMETER,
+    BNO_REPORT_RAW_ACCELEROMETER,
+    BNO_REPORT_RAW_GYROSCOPE,
+    BNO_REPORT_RAW_MAGNETOMETER,
+    BNO_REPORT_GAME_ROTATION_VECTOR,
+    BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR,
 )
 from adafruit_bno08x.i2c import BNO08X_I2C
 
 from rclpy.node import Node
-from sensor_msgs.msg import Imu
+from sensor_msgs.msg import Imu, MagneticField
 from std_msgs.msg import Bool
+from geometry_msgs.msg import Quaternion
+
+import utils.robot_params as rp
 
 
 class BNO085IMU(Node):
     def __init__(self):
         super().__init__('bno085_imu_node')
         
-        self.imu_publisher = self.create_publisher(Imu, '/imu', 10)
+        self.imu_publisher = self.create_publisher(Imu, '/imu/data', 10)
+        if rp.POST_RAW:
+            self.imu_raw_publisher = self.create_publisher(Imu, '/imu/raw', 10)
+        if rp.USE_MAG:
+            self.mag_publisher = self.create_publisher(MagneticField, '/mag/data', 10)
+            self.mag_quat_publisher = self.create_publisher(Imu, '/mag/quat', 10)
+            if rp.POST_RAW:
+                self.mag_raw_publisher = self.create_publisher(MagneticField, '/mag/raw', 10)
         self.odom_reset_sub = self.create_subscription(Bool, '/reset_odom', self.reset_odom_callback, 1)
         
         self.frequency = 50
@@ -53,58 +68,131 @@ class BNO085IMU(Node):
                 self.bno.enable_feature(BNO_REPORT_ACCELEROMETER)
                 self.bno.enable_feature(BNO_REPORT_GYROSCOPE)
                 self.bno.enable_feature(BNO_REPORT_ROTATION_VECTOR)
+
+                if rp.POST_RAW:
+                    self.bno.enable_feature(BNO_REPORT_RAW_ACCELEROMETER)
+                    self.bno.enable_feature(BNO_REPORT_RAW_GYROSCOPE)
+                    self.bno.enable_feature(BNO_REPORT_GAME_ROTATION_VECTOR)
+
+                if rp.USE_MAG:
+                    self.bno.enable_feature(BNO_REPORT_MAGNETOMETER)
+                    self.bno.enable_feature(BNO_REPORT_GEOMAGNETIC_ROTATION_VECTOR)
+                    if rp.POST_RAW:
+                        self.bno.enable_feature(BNO_REPORT_RAW_MAGNETOMETER)
+
             except Exception as e:
                 self.bno = None
                 self.get_logger().error(f"Error initializing BNO085 IMU: {e}")
                 self.reset()
         
         num_calibrations = 50
-        self.x_offset, self.y_offset = 0, 0
-        for i in range(num_calibrations):
-            accel_x, accel_y, accel_z = self.bno.acceleration
-            self.x_offset += accel_x
-            self.y_offset += accel_y
-            time.sleep(1/self.frequency)
-        self.x_offset /= num_calibrations
-        self.y_offset /= num_calibrations
         
 
     def publish_imu_data(self):
-        msg = Imu()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = self.frame_id
+        imu_msg = Imu()
+        imu_msg.header.stamp = self.get_clock().now().to_msg()
+        imu_msg.header.frame_id = self.frame_id
+
+        if rp.POST_RAW:
+            imu_raw_msg = Imu()
+            imu_raw_msg.header.stamp = imu_msg.header.stamp
+            imu_raw_msg.header.frame_id = imu_msg.header.frame_id
         
+        if rp.USE_MAG:
+            mag_msg = MagneticField()
+            mag_msg.header.stamp = imu_msg.header.stamp
+            mag_msg.header.frame_id = imu_msg.header.frame_id
+
+            mag_quat_msg = Imu()
+            mag_quat_msg.header.stamp = imu_msg.header.stamp
+            mag_quat_msg.header.frame_id = imu_msg.header.frame_id
+
+            if rp.POST_RAW:
+                mag_raw_msg = MagneticField()
+                mag_raw_msg.header.stamp = imu_msg.header.stamp
+                mag_raw_msg.header.frame_id = imu_msg.header.frame_id
+
         try:
-            # Read accelerometer data (m/s^2)
+            # Read calibrated IMU data
+            # Accelerometer data (m/s^2)
             accel_x, accel_y, accel_z = self.bno.acceleration
-            msg.linear_acceleration.x = accel_x
-            msg.linear_acceleration.y = accel_y
-            msg.linear_acceleration.z = accel_z
+            imu_msg.linear_acceleration.x = float(accel_x)
+            imu_msg.linear_acceleration.y = float(accel_y)
+            imu_msg.linear_acceleration.z = float(accel_z)
 
-            # Read gyroscope data (rad/s)
+            # Gyroscope data (rad/s)
             gyro_x, gyro_y, gyro_z = self.bno.gyro
-            msg.angular_velocity.x = gyro_x
-            msg.angular_velocity.y = gyro_y
-            msg.angular_velocity.z = gyro_z
+            imu_msg.angular_velocity.x = float(gyro_x)
+            imu_msg.angular_velocity.y = float(gyro_y)
+            imu_msg.angular_velocity.z = float(gyro_z)
 
-            # Read quaternion rotation data
+            # Quaternion rotation data
             quat_i, quat_j, quat_k, quat_real = self.bno.quaternion
-            msg.orientation.x = quat_i
-            msg.orientation.y = quat_j
-            msg.orientation.z = quat_k
-            msg.orientation.w = quat_real
+            imu_msg.orientation.x = float(quat_i)
+            imu_msg.orientation.y = float(quat_j)
+            imu_msg.orientation.z = float(quat_k)
+            imu_msg.orientation.w = float(quat_real)
+
+            self.imu_publisher.publish(imu_msg)
+
+            # Read raw IMU data
+            if rp.POST_RAW:
+                # Raw accelerometer data (m/s^2)
+                accel_x, accel_y, accel_z = self.bno.raw_acceleration
+                imu_raw_msg.linear_acceleration.x = float(accel_x)
+                imu_raw_msg.linear_acceleration.y = float(accel_y)
+                imu_raw_msg.linear_acceleration.z = float(accel_z)
+
+                # Raw gyroscope data (rad/s)
+                gyro_x, gyro_y, gyro_z = self.bno.raw_gyro
+                imu_raw_msg.angular_velocity.x = float(gyro_x)
+                imu_raw_msg.angular_velocity.y = float(gyro_y)
+                imu_raw_msg.angular_velocity.z = float(gyro_z)
+
+                # Raw quaternion rotation data
+                quat_i, quat_j, quat_k, quat_real = self.bno.game_quaternion
+                imu_raw_msg.orientation.x = float(quat_i)
+                imu_raw_msg.orientation.y = float(quat_j)
+                imu_raw_msg.orientation.z = float(quat_k)
+                imu_raw_msg.orientation.w = float(quat_real)
+
+                self.imu_raw_publisher.publish(imu_raw_msg)
+
+            # Read magnetometer data (uT)
+            if rp.USE_MAG:
+                # Calibrated magnetometer data
+                mag = self.bno.magnetic
+                if mag is not None:
+                    mag_x, mag_y, mag_z = mag
+                    mag_msg.magnetic_field.x = float(mag_x)
+                    mag_msg.magnetic_field.y = float(mag_y)
+                    mag_msg.magnetic_field.z = float(mag_z)
+                    self.mag_publisher.publish(mag_msg)
+
+                # Magnetometer quaternion data
+                mag_quat = self.bno.geomagnetic_quaternion
+                if mag_quat is not None:
+                    mag_quat_i, mag_quat_j, mag_quat_k, mag_quat_real = mag_quat
+                    mag_quat_msg.orientation.x = float(mag_quat_i)
+                    mag_quat_msg.orientation.y = float(mag_quat_j)
+                    mag_quat_msg.orientation.z = float(mag_quat_k)
+                    mag_quat_msg.orientation.w = float(mag_quat_real)
+                    self.mag_quat_publisher.publish(mag_quat_msg)
+
+                if rp.POST_RAW:
+                    # Raw magnetometer data
+                    raw_mag = self.bno.raw_magnetic
+                    if raw_mag is not None:
+                        mag_x, mag_y, mag_z = raw_mag
+                        mag_raw_msg.magnetic_field.x = float(mag_x)
+                        mag_raw_msg.magnetic_field.y = float(mag_y)
+                        mag_raw_msg.magnetic_field.z = float(mag_z)
+                        self.mag_raw_publisher.publish(mag_raw_msg)
             
         except Exception as e:
             self.get_logger().error(f"Error reading IMU data: {e}")
             self.re_init_imu()
             return
-        
-        # Set covariance arrays (using -1 in the first element to indicate unknown covariance)
-        msg.orientation_covariance = [-1.0] + [0.0] * 8
-        msg.angular_velocity_covariance = [-1.0] + [0.0] * 8
-        msg.linear_acceleration_covariance = [-1.0] + [0.0] * 8
-
-        self.imu_publisher.publish(msg)
     
     def reset_odom_callback(self, msg):
         if msg.data:
