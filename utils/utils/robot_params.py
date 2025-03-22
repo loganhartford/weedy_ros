@@ -23,6 +23,7 @@ DONE = 7.0
 
 filter_type = FilterType.ODOMETRY_IMU
 
+# BNO085 Stuff
 USE_MAG = True
 POST_RAW = False
 
