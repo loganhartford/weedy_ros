@@ -1,4 +1,0 @@
-timestamp,layout.dim,layout.data_offset,data
-1742656879424343134,"[std_msgs.msg.MultiArrayDimension(label='rows', size=1, stride=4), std_msgs.msg.MultiArrayDimension(label='cols', size=4, stride=1)]",0,"array('f', [1.0, -0.10000000149011612, 0.0, 0.0])"
-1742656882949828350,"[std_msgs.msg.MultiArrayDimension(label='rows', size=1, stride=4), std_msgs.msg.MultiArrayDimension(label='cols', size=4, stride=1)]",0,"array('f', [1.0, 0.17962612211704254, 0.0, 0.0])"
-1742656887834301328,"[std_msgs.msg.MultiArrayDimension(label='rows', size=1, stride=4), std_msgs.msg.MultiArrayDimension(label='cols', size=4, stride=1)]",0,"array('f', [1.0, -0.08981306105852127, 0.0, 0.0])"
