@@ -1,0 +1,29 @@
+timestamp,stamp.sec,stamp.nanosec,level,name,msg,file,function,line
+1742656841741686509,1742656841,741249588,20,rosbag2_recorder,Subscribed to topic '/rosout',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742656841745810945,1742656841,745299654,20,rosbag2_recorder,Subscribed to topic '/diagnostics',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742656841748994538,1742656841,748920669,20,rosbag2_recorder,Subscribed to topic '/mag/data',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742656841750795925,1742656841,750249024,20,rosbag2_recorder,Subscribed to topic '/imu/data',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742656841753120936,1742656841,753046511,20,rosbag2_recorder,Subscribed to topic '/send_uart',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742656841757049022,1742656841,756776266,20,rosbag2_recorder,Subscribed to topic '/pose',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742656841759895305,1742656841,759783658,20,rosbag2_recorder,Subscribed to topic '/cmd_vel',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742656841765859663,1742656841,764836490,20,rosbag2_recorder,Subscribed to topic '/parameter_events',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742656841767770346,1742656841,767667254,20,rosbag2_recorder,Subscribed to topic '/odometry/filtered',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742656841767933788,1742656841,767890585,20,rosbag2_recorder,Recording...,./src/rosbag2_transport/recorder.cpp,record,358
+1742656844280835133,1742656844,279921865,20,decisions,Transitioning from IDLE to TRAVEL,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
+1742656846337051053,1742656846,336790555,20,controller,increment_path,/mnt/shared/weedy_ros/install/locomotion/lib/python3.12/site-packages/locomotion/controller.py,close_loop_path_following,121
+1742656846338353946,1742656846,338230373,20,decisions,Transitioning from TRAVEL to EXPLORING,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
+1742656856239262523,1742656856,238687011,20,controller,increment_path,/mnt/shared/weedy_ros/install/locomotion/lib/python3.12/site-packages/locomotion/controller.py,close_loop_path_following,121
+1742656856610219031,1742656856,610094625,20,decisions,Transitioning from EXPLORING to ROTATE,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
+1742656861616705778,1742656861,616579335,20,controller,increment_path,/mnt/shared/weedy_ros/install/locomotion/lib/python3.12/site-packages/locomotion/controller.py,close_loop_rotatation,142
+1742656863786913767,1742656863,786794490,20,controller,increment_path,/mnt/shared/weedy_ros/install/locomotion/lib/python3.12/site-packages/locomotion/controller.py,close_loop_path_following,121
+1742656863788379493,1742656863,788234939,40,decisions,Already in state ROTATE,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,122
+1742656869037132538,1742656869,36570061,20,controller,increment_path,/mnt/shared/weedy_ros/install/locomotion/lib/python3.12/site-packages/locomotion/controller.py,close_loop_rotatation,142
+1742656869037754421,1742656869,37651218,20,decisions,Transitioning from ROTATE to EXPLORING,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
+1742656877801429652,1742656877,801265969,20,decisions,Transitioning from EXPLORING to ALIGNING,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
+1742656879425471310,1742656879,424954777,20,decisions,Transitioning from ALIGNING to WAITING,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
+1742656882437012133,1742656882,436896560,20,controller,new_pos_reached,/mnt/shared/weedy_ros/install/locomotion/lib/python3.12/site-packages/locomotion/controller.py,closed_loop_positioning,98
+1742656882438708896,1742656882,438553545,20,decisions,Transitioning from WAITING to ALIGNING,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
+1742656882950492585,1742656882,950405086,20,decisions,Transitioning from ALIGNING to WAITING,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
+1742656886336868248,1742656886,336744767,20,controller,new_pos_reached,/mnt/shared/weedy_ros/install/locomotion/lib/python3.12/site-packages/locomotion/controller.py,closed_loop_positioning,98
+1742656886338585066,1742656886,338089311,20,decisions,Transitioning from WAITING to ALIGNING,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
+1742656887835426596,1742656887,834758787,20,decisions,Transitioning from ALIGNING to WAITING,/mnt/shared/weedy_ros/install/decisions/lib/python3.12/site-packages/decisions/decisions.py,transition_to_state,131
