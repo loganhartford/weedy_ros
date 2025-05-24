@@ -1,0 +1,14 @@
+timestamp,stamp.sec,stamp.nanosec,level,name,msg,file,function,line
+1742662962055046593,1742662962,54932463,20,rosbag2_recorder,Subscribed to topic '/mag/quat',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962059349284,1742662962,59273691,20,rosbag2_recorder,Subscribed to topic '/odom',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962060734279,1742662962,60642982,20,rosbag2_recorder,Subscribed to topic '/imu/data',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962062715261,1742662962,62593483,20,rosbag2_recorder,Subscribed to topic '/mag/data',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962064555391,1742662962,64428056,20,rosbag2_recorder,Subscribed to topic '/send_uart',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962066531688,1742662962,66410002,20,rosbag2_recorder,Subscribed to topic '/cmd_vel',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962068658172,1742662962,68541837,20,rosbag2_recorder,Subscribed to topic '/pose',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962071899408,1742662962,71800629,20,rosbag2_recorder,Subscribed to topic '/parameter_events',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962074356247,1742662962,73685555,20,rosbag2_recorder,Subscribed to topic '/position',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962075461072,1742662962,74491526,20,rosbag2_recorder,Recording...,./src/rosbag2_transport/recorder.cpp,record,358
+1742662962381233070,1742662962,380632323,20,rosbag2_recorder,Subscribed to topic '/odometry/filtered',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962384223655,1742662962,384161284,20,rosbag2_recorder,Subscribed to topic '/diagnostics',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558
+1742662962388166897,1742662962,388106267,20,rosbag2_recorder,Subscribed to topic '/tf',./src/rosbag2_transport/recorder.cpp,subscribe_topic,558

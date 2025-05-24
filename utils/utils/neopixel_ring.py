@@ -6,17 +6,19 @@ class NeoPixelRing:
         self.neo = Pi5Neo('/dev/spidev0.0', 16, 800)
         self.last_settings = (0, 0, 0, 0)  # (r, g, b, brightness)
         self.animation_index = 0  # Keeps track of the current animation step
-
+    
     def set_color(self, r, g, b, a):
+        if (r, g, b, a) == self.last_settings:
+            return
         self.last_settings = (r, g, b, a)
         self.neo.fill_strip(int(r * a), int(g * a), int(b * a))
         self.neo.update_strip()
 
     def flash_color(self, r, g, b, a, duration=0.5):
-        self.neo.fill_strip(int(r * a), int(g * a), int(b * a))
-        self.neo.update_strip()
+        prev = self.last_settings
+        self.set_color(r, g, b, a)
         time.sleep(duration)
-        self.set_color(*self.last_settings)
+        self.set_color(*prev)
 
     def off(self):
         self.last_settings = (0, 0, 0, 0.0)

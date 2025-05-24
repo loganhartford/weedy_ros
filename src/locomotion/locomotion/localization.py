@@ -12,27 +12,28 @@ from rclpy.qos import QoSProfile
 import rclpy
 import message_filters
 
-from utils.utilities import normalize_angle
+from utils.utilities import create_yaw_from_quaternion
 import utils.robot_params as rp
 from locomotion.kalman_filter import KalmanFilter
 
-KALMAN_FILTER = False
 
 class LocalizationNode(Node):
+
     def __init__(self):
         super().__init__('localization_node')
 
         self.pose_pub = self.create_publisher(PoseStamped, '/pose', 10)
 
-        if KALMAN_FILTER:
+        if rp.filter_type == rp.FilterType.CUSTOM_EKF:
             qos=QoSProfile(reliability=2, durability=2, history=1, depth=10)
-            self.imu_sub=message_filters.Subscriber(self, Imu, "/imu", qos_profile=qos)
+            self.imu_sub=message_filters.Subscriber(self, Imu, "/imu/data", qos_profile=qos)
             self.ticks_sub=message_filters.Subscriber(self, Odometry, "/odom", qos_profile=qos)
             time_syncher=message_filters.ApproximateTimeSynchronizer([self.ticks_sub, self.imu_sub], queue_size=10, slop=0.1)
             time_syncher.registerCallback(self.fusion_callback)
-        else:
-            self.imu_sub = self.create_subscription(Imu, '/imu', self.imu_callback, 1)
+        elif rp.filter_type == rp.FilterType.ODOMETRY or rp.filter_type == rp.FilterType.ODOMETRY_IMU:
             self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 1)
+        elif rp.filter_type == rp.FilterType.ROS_EKF:
+            self.ekf_sub = self.create_subscription(Odometry, '/odometry/filtered', self.odom_callback, 1)
         
         self.last_imu = None
 
@@ -48,13 +49,11 @@ class LocalizationNode(Node):
         self.last_time = self.clock.now()
 
         self.get_logger().info("Localization Initialized")
-    
-    def imu_callback(self, msg: Imu):
-        self.last_imu = msg
 
     def odom_callback(self, msg):
         self.pose.header.stamp = msg.header.stamp
         self.pose.pose = msg.pose.pose
+        self.pose.pose.orientation.z = create_yaw_from_quaternion(self.pose.pose.orientation)
         self.pose_pub.publish(self.pose)
 
     def fusion_callback(self, odom_msg: Odometry, imu_msg: Imu):
@@ -66,8 +65,8 @@ class LocalizationNode(Node):
                             0,
                             0])        
 
-            Q=0.2*np.eye(6)
-            R=0.5*np.eye(4)
+            Q=1.0*np.eye(6)
+            R=0.1*np.eye(4)
             P=Q.copy()
             
             self.kf=KalmanFilter(P, Q, R, x)
@@ -88,7 +87,7 @@ class LocalizationNode(Node):
         self.pose.pose.position.x = xhat[0]
         self.pose.pose.position.y = xhat[1]
         self.pose.pose.orientation.z = xhat[2]
-        self.pose.header.stamp = stamp
+        self.pose.header.stamp = stamp.to_msg()
         self.pose_pub.publish(self.pose)
 
 

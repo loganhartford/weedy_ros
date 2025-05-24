@@ -22,11 +22,14 @@ class UARTNode(Node):
 
         self.cmd_pub = self.create_publisher(String, '/cmd', 10)
         self.ticks_pub = self.create_publisher(Int32MultiArray, '/ticks', 1)
-        self.battery_pub = self.create_publisher(Float32, '/battery', 1)
-        self.create_timer(0.01, self.check_incoming_messages)
+        self.battery_pub = self.create_publisher(Float32, '/battery', 10)
 
         self.nucleo_gpio = NucleoGPIO()
-
+        # Enable and wait because incoming messages will repeatedly reset if ticks are not being received
+        self.nucleo_gpio.enable_nucelo()
+        time.sleep(0.1)
+        self.incoming_timer = self.create_timer(0.01, self.check_incoming_messages)
+        
         self.get_logger().info("UART Initialized")
 
     def bytes_callback(self, msg):
@@ -34,11 +37,9 @@ class UARTNode(Node):
         if not data:
             self.get_logger().warning("Received empty byte array.")
             return
-
+        
         if data[0] == rp.weed_removal_byte:
             self.send_weed_removal(data)
-        elif data[0] == rp.battery_byte:
-            self.get_battery_voltage()
         else:
             self.ser.write(data)
 
@@ -58,23 +59,7 @@ class UARTNode(Node):
 
         self.get_logger().error(f"UART Error during command processing: Timeout waiting for acknowledgment after 3 attempts.")
     
-    def get_battery_voltage(self):
-        self.ser.write(bytes([rp.battery_byte]))
-
-        buffer = bytearray()
-        start_time = time.time()
-        while len(buffer) < 4:
-            if (time.time() - start_time) > self.ack_timeout:
-                self.get_logger().error("Timeout waiting for battery reply.")
-                return
-            data = self.ser.read(self.ser.in_waiting or 1)
-            if data:
-                buffer.extend(data)
-
-        if buffer[0] != rp.battery_byte:
-            self.get_logger().error("Invalid start byte in battery reply.")
-            return
-
+    def parse_battery_msg(self, buffer):
         if sum(buffer[:-1]) % 256 != buffer[-1]:
             self.get_logger().error("Invalid battery checksum.")
             return
@@ -117,18 +102,19 @@ class UARTNode(Node):
                 # Parse tick values (handle signed 16-bit integers)
                 ticks1 = (buffer[1] << 8) | buffer[2]
                 ticks2 = (buffer[3] << 8) | buffer[4]
-                if ticks1 & (1 << 15):
-                    ticks1 -= (1 << 16)
-                if ticks2 & (1 << 15):
-                    ticks2 -= (1 << 16)
+                ticks1 = np.uint16(ticks1)
+                ticks2 = np.uint16(ticks2)
                 
                 ticks_msg = Int32MultiArray()
                 ticks_msg.data = [ticks1, ticks2]
                 self.ticks_pub.publish(ticks_msg)
 
+            elif len(buffer) >= 4 and buffer[0] == rp.battery_byte:
+                self.parse_battery_msg(buffer)
             elif buffer[0] == rp.callback_byte:
                 cmd_msg = String(data="removal_complete")
                 self.cmd_pub.publish(cmd_msg)
+                # self.nucleo_gpio.ack_nucelo()
             else:
                 self.get_logger().warn("Received unknown message type: " + str(buffer))
 

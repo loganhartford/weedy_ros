@@ -3,7 +3,7 @@ import pygame
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from std_msgs.msg import String, UInt8MultiArray
+from std_msgs.msg import String, UInt8MultiArray, Bool
 
 from utils.nucleo_gpio import NucleoGPIO
 import utils.robot_params as rp
@@ -25,6 +25,8 @@ class TeleopNode(Node):
         self.cmd_pub = self.create_publisher(String, '/cmd', 10)
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
+        self.reset_odom_pub = self.create_publisher(Bool, "/reset_odom", 10)
+        self.pause_path_pub = self.create_publisher(String, "/ctr_cmd", 10)
 
         self.last_linear = 0.0
         self.last_angular = 0.0
@@ -48,6 +50,7 @@ class TeleopNode(Node):
 
         pygame.event.pump()
         for event in pygame.event.get():
+            self.get_logger().debug(f"Event: {event}")
             if event.type == pygame.JOYAXISMOTION:
                 self.handle_axis_motion(event)
             elif event.type == pygame.JOYHATMOTION:
@@ -64,9 +67,9 @@ class TeleopNode(Node):
         if event.axis in {2, 5}:  # Triggers
             value = self.joystick.get_axis(event.axis) + 1
             if event.axis == 2 and value > 0.5:
-                angular_z = -rp.max_zero_angular_speed
+                angular_z = rp.max_angular_speed
             elif event.axis == 5 and value > 0.5:
-                angular_z = rp.max_zero_angular_speed
+                angular_z = -rp.max_angular_speed
             else:
                 angular_z = 0.0
         else:  # Joystick movement (Left stick: linear, Right stick: angular)
@@ -101,15 +104,15 @@ class TeleopNode(Node):
                 self.get_logger().error("Emergency STOP!")
                 twist.linear.x = 0.0
                 twist.angular.z = 0.0
-        elif event.button == 5:  # RB button - Send UART command
-            self.uart_pub.publish(package_removal_command(50))
+                self.pause_path_pub.publish(String(data="stop"))
+        elif event.button == 5:  # RB button - Reset Odometry
+            self.reset_odom_pub.publish(Bool(data=True))
         elif event.button == 6:  # Back button (-) - Toggle GPIO reset
             self.toggle_nucleo_reset()
-        elif event.button == 7:  # Start button (+) - Circle turn
-            radius = 0.35  # Choose a radius greater than 0.269 m for pure forward motion
-            twist.linear.x = 0.3
-            twist.angular.z = -twist.linear.x / radius
-            self.cmd_vel_pub.publish(twist)
+        elif event.button == 7:  # Start button (+) - Removal
+            # Homography alignement positions
+            self.uart_pub.publish(package_removal_command(23))
+            # self.uart_pub.publish(package_removal_command(196))
         elif event.button == 10:  # Right Stick Press - Drill activation (uses manual_control)
             self.send_manual_command(rp.drill_byte)
 

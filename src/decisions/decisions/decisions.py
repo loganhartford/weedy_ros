@@ -1,22 +1,28 @@
 import cv2
 import numpy as np
 from enum import Enum, auto
+import time
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point, PoseStamped
-from std_msgs.msg import Float32, Float32MultiArray, MultiArrayLayout, MultiArrayDimension, String, UInt8MultiArray
+from geometry_msgs.msg import Twist, PoseStamped
+from std_msgs.msg import Bool, Float32, Float32MultiArray, String, UInt8MultiArray
 
 
-from utils.nucleo_gpio import NucleoGPIO
 from utils.neopixel_ring import NeoPixelRing
-from decisions.yolo_model import YOLOModel
-from decisions.planner import Planner
+try:
+    from decisions.yolo_model import YOLOModel
+    from decisions.planner import Planner
+except:
+    from yolo_model import YOLOModel
+    from planner import Planner
 import utils.robot_params as rp
 from utils.utilities import two_d_array_to_float32_multiarray, package_removal_command
 
 class State(Enum):
     IDLE = auto()
+    TRAVEL = auto()
+    ROTATE = auto()
     EXPLORING = auto()
     ALIGNING = auto()
     WAITING = auto()
@@ -33,20 +39,30 @@ class DecisionsNode(Node):
         self.path_pub = self.create_publisher(Float32MultiArray, "/path", 10)
         self.positioning_pub = self.create_publisher(Float32MultiArray, "/position", 10)
         self.uart_pub = self.create_publisher(UInt8MultiArray, "/send_uart", 10)
+        self.pause_path_pub = self.create_publisher(String, "/ctr_cmd", 10)
+        self.reset_odom_pub = self.create_publisher(Bool, "/reset_odom", 10)
         self.pose = None
 
         # Hardware and utility components
         self.led_ring = NeoPixelRing()
-        self.nuc_gpio = NucleoGPIO()
-        self.cv_model = YOLOModel()
+        
+        try:
+            self.cv_model = YOLOModel()
+            self.cv_model.run_inference(save_result=True)
+        except Exception as e:
+            self.get_logger().error(f"Error initializing YOLO model: {e}")
         self.kp_conf_thresh = 0.6
         self.box_conf_thresh = 0.5
+        self.no_kp = 0
+        self.last_reposition = None
+        
         self.planner = Planner()
         self.path = None
+        self.path_type = None
+        self.path_index = None
 
         self.move_timeout = 5
         self.battery_voltage = None
-        self.request_battery_voltage()
 
         # Compute homography matrix
         self.H, status = cv2.findHomography(rp.pixel_points, rp.ground_points, cv2.RANSAC, 5.0)
@@ -62,14 +78,21 @@ class DecisionsNode(Node):
         self.removal_in_process = False
 
         self.valid_transitions = {
-            State.IDLE: [State.EXPLORING],
-            State.EXPLORING: [State.IDLE, State.ALIGNING],
-            State.ALIGNING: [State.IDLE, State.WAITING],
+            State.IDLE: [State.EXPLORING, State.TRAVEL],
+            State.TRAVEL: [State.IDLE, State.EXPLORING],
+            State.ROTATE: [State.IDLE, State.TRAVEL, State.EXPLORING],
+            State.EXPLORING: [State.IDLE, State.ALIGNING, State.TRAVEL, State.ROTATE],
+            State.ALIGNING: [State.IDLE, State.WAITING, State.EXPLORING],
             State.WAITING: [State.IDLE, State.EXPLORING, State.ALIGNING],
         }
         self.state = State.IDLE
+        self.state_timer_period = 0.1
         
         self.get_logger().info("Decisions Initialized")
+        self.flash = True
+        self.request_battery_voltage()
+
+        self.check_battery_timer = self.create_timer(300.0, self.request_battery_voltage)
 
     def cancel_all_timers(self):
         for attr in ("explore_timer", "align_timer", "wait_timer"):
@@ -91,6 +114,8 @@ class DecisionsNode(Node):
             self.start_aligning()
         elif self.state == State.WAITING:
             self.start_waiting()
+        elif self.state == State.TRAVEL:
+            self.led_ring.set_color(255, 255, 0, 1.0)
 
     def transition_to_state(self, new_state: State):
         if new_state == self.state:
@@ -108,16 +133,16 @@ class DecisionsNode(Node):
         )
         self.state = new_state
         self.on_state_entry()
-
+        
+            
     def start_exploring(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
 
-        self.path = two_d_array_to_float32_multiarray(self.planner.plan())
-        self.path_pub.publish(self.path)
+        self.pause_path_pub.publish(String(data="go"))
 
         if self.explore_timer:
             self.explore_timer.cancel()
-        self.explore_timer = self.create_timer(0.1, self.explore_callback)
+        self.explore_timer = self.create_timer(self.state_timer_period, self.explore_callback)
 
     def explore_callback(self):
         if self.state != State.EXPLORING:
@@ -128,41 +153,59 @@ class DecisionsNode(Node):
         boxes = self.get_boxes()
         if boxes is not None:
             self.explore_timer.cancel()
+            # To account for the case where the robot clears the dandelion before coming to a stop
+            self.last_reposition = 0.2
             self.transition_to_state(State.ALIGNING)
 
     def start_aligning(self):
         self.led_ring.set_color(255, 255, 255, 1.0)
         
-        self.path_pub.publish(Float32MultiArray())
+        self.pause_path_pub.publish(String(data="pause"))
 
         if self.align_timer:
             self.align_timer.cancel()
-        self.align_timer = self.create_timer(0.1, self.align_callback)
+        self.align_timer = self.create_timer(self.state_timer_period, self.align_callback)
 
     def align_callback(self):
         if self.state != State.ALIGNING:
             if self.align_timer:
                 self.align_timer.cancel()
             return
-
+        
         kp_list = self.get_keypoints()
         if kp_list is None:
+            self.no_kp += 1
+            if self.no_kp > 3:
+                # To account for the case where we move past the dandelion during a re-position
+                if self.last_reposition is not None:
+                    new_position = two_d_array_to_float32_multiarray([[rp.POSITION, -self.last_reposition/2, 0.0, 0.0]])
+                    self.positioning_pub.publish(new_position)
+                    self.last_reposition = None
+                    self.no_kp = 0
+                    self.align_timer.cancel()
+                    self.transition_to_state(State.WAITING)
+                    return
+                self.no_kp = 0
+                self.get_logger().info("No keypoints found. Transitioning to EXPLORING.")
+                self.align_timer.cancel()
+                self.transition_to_state(State.EXPLORING)
             return
+        
+        self.no_kp = 0
 
         # Select keypoint with x-coordinate closest to zero
         best_point = min(kp_list, key=lambda pt: abs(pt[0]))
         if abs(best_point[0] / 1000.0) < rp.y_axis_alignment_tolerance:
             self.get_logger().info("Y-axis aligned. Removing flower.")
+            self.led_ring.set_color(255, 255, 0, 1.0)
             self.uart_pub.publish(package_removal_command(best_point[1]))
             self.align_timer.cancel()
             self.transition_to_state(State.WAITING)
             return
 
-        x = self.pose.pose.position.x + best_point[0] / 1000.0
-        y = self.pose.pose.position.y
-        z = self.pose.pose.orientation.z
-        new_position = two_d_array_to_float32_multiarray([[x, y, z]])
-
+        displacement = best_point[0] / 1000.0
+        self.last_reposition = displacement
+        new_position = two_d_array_to_float32_multiarray([[rp.POSITION, displacement, 0.0, 0.0]])
         self.positioning_pub.publish(new_position)
         
         self.align_timer.cancel()
@@ -172,7 +215,7 @@ class DecisionsNode(Node):
         self.wait_start_time = self.get_clock().now()
         if self.wait_timer:
             self.wait_timer.cancel()
-        self.wait_timer = self.create_timer(0.1, self.wait_callback)
+        self.wait_timer = self.create_timer(self.state_timer_period, self.wait_callback)
 
     def wait_callback(self):
         if self.state != State.WAITING:
@@ -183,9 +226,8 @@ class DecisionsNode(Node):
         if self.removal_in_process:
             self.led_ring.step_animation()
 
-
     def get_boxes(self):
-        result = self.cv_model.run_inference()
+        result = self.cv_model.run_inference(save_data=True, save_result=True)
         if result is None:
             return None
 
@@ -194,7 +236,7 @@ class DecisionsNode(Node):
         return result.boxes if len(result.boxes) > 0 else None
 
     def get_keypoints(self):
-        result = self.cv_model.run_inference()
+        result = self.cv_model.run_inference(save_data=True, save_result=True)
         if result is None or not result.keypoints:
             return None
 
@@ -226,14 +268,19 @@ class DecisionsNode(Node):
         self.battery_voltage = msg.data
         try:
             self.get_logger().info(f"Battery voltage: {self.battery_voltage} V")
-            if self.battery_voltage > 37.0:
+            if self.battery_voltage > 37.0 and self.flash:
                 self.led_ring.flash_color(0, 255, 0, 1.0)
             elif self.battery_voltage < 30.0:
                 self.led_ring.flash_color(255, 0, 0, 1.0)
-            else:
+                self.get_logger().warn("Low battery voltage. Stopping.")
+                # TODO: E-Stop here
+                time.sleep(1.0)
+            elif self.flash:
                 self.led_ring.flash_color(255, 255, 0, 1.0)
         except Exception as e:
             self.get_logger().error(f"Error getting battery voltage: {e}")
+        
+        self.flash = False
 
     def publish_twist(self, linear, angular):
         msg = Twist()
@@ -241,20 +288,55 @@ class DecisionsNode(Node):
         msg.angular.z = float(angular)
         self.cmd_vel_publisher.publish(msg)
 
+    def increment_path(self, increment=True):
+        if increment:
+            self.path_index += 1
+
+        if self.path_index >= len(self.path):
+            self.path = None
+            self.path_type = None
+            self.transition_to_state(State.IDLE)
+            return
+        
+        self.path_type = self.path[self.path_index][0]
+
+        if self.path_type == rp.TRAVEL or self.path_type == rp.DOCK:
+            self.transition_to_state(State.TRAVEL)
+        elif self.path_type == rp.ROTATE:
+            self.transition_to_state(State.ROTATE)
+        elif self.path_type == rp.WORK:
+            self.transition_to_state(State.EXPLORING)
+        elif self.path_type == rp.DONE:
+            time.sleep(0.5)
+            self.reset_odom_pub.publish(Bool(data=True))
+            self.path_index = 0
+            self.transition_to_state(State.IDLE)
+
+    def start_path(self):
+        self.path = self.planner.plan()
+        self.path_index = 0
+        path_msg = two_d_array_to_float32_multiarray(self.path)
+        self.path_pub.publish(path_msg)
+
+        self.increment_path(increment=False)
+        
+
     def cmd_callback(self, msg: String):
         command = msg.data.lower()
         if command == "start":
-            self.transition_to_state(State.EXPLORING)
+            self.start_path()
+        elif command == "increment_path":
+            self.increment_path()
         elif command == "stop":
             self.transition_to_state(State.IDLE)
         elif command == "new_pos_reached":
             self.transition_to_state(State.ALIGNING)
-        elif command == "path_complete":
-            self.transition_to_state(State.IDLE)
-        elif command == "removal_complete":
+        elif self.state == State.WAITING and command == "removal_complete":
             self.transition_to_state(State.EXPLORING)
         elif command == "get_img":
+            self.led_ring.set_color(255, 255, 255, 1.0)
             self.cv_model.capture_and_save_image()
+            self.cv_model.run_inference(save_result=True)
         elif command == "print_pose":
             if self.pose:
                 pos = self.pose.pose.position
@@ -265,6 +347,7 @@ class DecisionsNode(Node):
             else:
                 self.get_logger().info("No pose received yet.")
         elif command == "battery":
+            self.flash = True
             self.request_battery_voltage()
         else:
             self.get_logger().error(f"'{command}' is not a valid command.")

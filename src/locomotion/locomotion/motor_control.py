@@ -15,6 +15,8 @@ class MotorController:
         self.right_motor = HardwarePWM(pwm_channel=1, hz=20000, chip=2)
         self.left_motor.start(0)
         self.right_motor.start(0)
+        self.last_angular_vel = 0
+        self.last_linear_vel = 0
 
         self.left_motordir = 5
         self.right_motordir = 6
@@ -27,9 +29,22 @@ class MotorController:
             with open(self.log_file, "w") as file:
                 file.write("duty_left,duty_right\n")
 
-    def set_velocity(self, linear_x, angular_z, closed_loop=True):
-        linear_x = max(-rp.max_linear_speed, min(linear_x, rp.max_linear_speed))
-        angular_z = max(-rp.max_angular_speed, min(angular_z, rp.max_angular_speed))
+    def set_velocity(self, linear_x, angular_z, closed_loop=True, cap_speed=True):
+        # LPF
+        if closed_loop:
+            gain = rp.cl_speed_gain
+        else:
+            gain = rp.ol_speed_gain
+
+        linear_x = round(self.last_linear_vel + gain * (linear_x - self.last_linear_vel), 4)
+        angular_z = round(self.last_angular_vel + gain * (angular_z - self.last_angular_vel),4)
+
+        if closed_loop and cap_speed:
+            linear_x = max(min(linear_x, rp.path_max_linear_speed), -rp.path_max_linear_speed)
+            angular_z = max(min(angular_z, rp.path_max_angular_speed), -rp.path_max_angular_speed)
+
+        self.last_angular_vel = angular_z
+        self.last_linear_vel = linear_x
 
         left_wheel_velocity = linear_x - (angular_z * rp.wheel_base / 2)
         right_wheel_velocity = linear_x + (angular_z * rp.wheel_base / 2)
@@ -54,12 +69,19 @@ class MotorController:
 
         if rp.log:
             with open(self.log_file, "a") as file:
-                file.write(f"{left_duty},{right_duty}\n")
+                file.write(f"{linear_x},{angular_z},{left_duty},{right_duty}\n")
 
         self.left_motor.change_duty_cycle(left_duty)
         self.right_motor.change_duty_cycle(right_duty)
 
     def stop(self):
+        self.last_linear_vel = 0.0
+        self.last_angular_vel = 0.0
+        self.left_motor.change_duty_cycle(0)
+        self.right_motor.change_duty_cycle(0)
+        
+    
+    def __del__(self):
         self.left_motor.stop()
         self.right_motor.stop()
         lgpio.gpiochip_close(self.chip)
